@@ -282,6 +282,43 @@
     .art-name    { flex: 1; font-size: 13px; }
     .art-nr      { font-size: 11px; color: var(--muted); min-width: 90px; }
     .art-einheit { font-size: 11px; color: var(--muted); min-width: 70px; text-align: right; }
+    .art-preis   { font-size: 11px; color: var(--blue-d); min-width: 68px; text-align: right; font-weight: 600; }
+
+    /* ── RECHNUNGSAUFSTELLUNG ──────────────────────────────────────── */
+    .rechnung-box {
+      margin: 14px 0 0;
+      background: var(--blue-light);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .rechnung-title {
+      padding: 9px 14px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .rechnung-row {
+      display: flex; justify-content: space-between;
+      padding: 5px 14px;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(21,101,192,.12);
+    }
+    .rechnung-row:last-child { border-bottom: none; }
+    .rechnung-row.sub { color: var(--muted); }
+    .rechnung-row.total-netto { font-weight: 600; border-top: 1px solid var(--border); }
+    .rechnung-row.mwst { color: var(--muted); }
+    .rechnung-row.total-brutto {
+      font-weight: 700; font-size: 14px;
+      background: rgba(21,101,192,.12);
+      border-top: 2px solid var(--blue);
+      padding: 8px 14px;
+    }
+    .rechnung-row.hint {
+      font-size: 11px; color: var(--muted);
+      font-style: italic; padding: 6px 14px;
+    }
 
     .menge-input {
       width: 62px; padding: 5px 6px;
@@ -496,9 +533,9 @@
 
       <!-- Kategorie-Tabs (nur bei Bestellung) -->
       <div id="cat-tabs" style="display:none">
-        <div class="cat-tab active" data-cat="labor"       onclick="switchCat('labor')">🧪 Labor</div>
-        <div class="cat-tab"        data-cat="praxis"      onclick="switchCat('praxis')">🏥 Praxis</div>
-        <div class="cat-tab"        data-cat="sprechstunde" onclick="switchCat('sprechstunde')">📋 Sprechstundenbedarf</div>
+        <div class="cat-tab active" data-cat="labor"        onclick="switchCat('labor')">🧪 Laborbedarf</div>
+        <div class="cat-tab"       data-cat="praxis"       onclick="switchCat('praxis')">🏥 Praxisbedarf</div>
+        <div class="cat-tab"       data-cat="sprechstunde" onclick="switchCat('sprechstunde')">📋 Sprechstundenbedarf</div>
       </div>
 
       <!-- Content -->
@@ -748,11 +785,13 @@ function renderCurrentCat() {
         <div class="art-name">${esc(art.name)}</div>
         <div class="art-nr">${esc(art.artikelnummer)}</div>
         <div class="art-einheit">${esc(art.einheit)}</div>
+        ${(parseFloat(art.preis_netto)||0) > 0 ? `<div class="art-preis">${(parseFloat(art.preis_netto)).toFixed(2).replace('.',',')} €</div>` : `<div class="art-preis"></div>`}
         <input type="number" min="0" step="1" placeholder="0"
           class="menge-input${filled}" value="${esc(String(qty))}"
           data-id="${art.id}" data-kat="${art.kategorie}"
           data-gruppe="${esc(art.gruppe)}" data-name="${esc(art.name)}"
           data-nr="${esc(art.artikelnummer)}" data-einheit="${esc(art.einheit)}"
+          data-preis="${parseFloat(art.preis_netto)||0}"
           oninput="onQtyInput(this)">
       </div>`;
     });
@@ -825,7 +864,8 @@ function collectPositions() {
     pos.push({
       artikel_id: inp.dataset.id, kategorie: inp.dataset.kat,
       gruppe: inp.dataset.gruppe, name: inp.dataset.name,
-      artikelnummer: inp.dataset.nr || '', einheit: inp.dataset.einheit || 'Stück', menge,
+      artikelnummer: inp.dataset.nr || '', einheit: inp.dataset.einheit || 'Stück',
+      preis_netto: parseFloat(inp.dataset.preis) || 0, menge,
     });
   });
   return pos;
@@ -963,6 +1003,8 @@ async function loadBestelltView() {
       ci.forEach(item => {
         const doneClass = item.erhalten ? ' done' : '';
         const byText    = item.erhalten ? `✓ ${item.erhalten_von || ''}` : '';
+        const preis     = parseFloat(item.preis_netto) || 0;
+        const posTotal  = preis > 0 ? (item.menge * preis).toFixed(2).replace('.',',') + ' €' : '';
         html += `<div class="check-row${doneClass}">
           <input type="checkbox" ${item.erhalten ? 'checked' : ''}
             onchange="toggleErhalten('${item.id}', '${order.id}', this.checked)">
@@ -970,10 +1012,35 @@ async function loadBestelltView() {
             ${item.artikelnummer ? `<span style="color:var(--muted);font-size:11px"> ${esc(item.artikelnummer)}</span>` : ''}
           </span>
           <span class="cr-menge">${item.menge}× ${esc(item.einheit)}</span>
+          ${posTotal ? `<span style="font-size:11px;color:var(--blue-d);min-width:72px;text-align:right">${posTotal}</span>` : '<span style="min-width:72px"></span>'}
           <span class="cr-by">${byText}</span>
         </div>`;
       });
     });
+
+    // ── Rechnungsaufstellung (nur Labor + Praxis) ──────────────────
+    const rechnItems = items.filter(i => i.kategorie !== 'sprechstunde' && (parseFloat(i.preis_netto)||0) > 0);
+    if (rechnItems.length > 0) {
+      const laborItems  = rechnItems.filter(i => i.kategorie === 'labor');
+      const praxisItems = rechnItems.filter(i => i.kategorie === 'praxis');
+      const sumLabor  = laborItems.reduce( (s,i) => s + i.menge * (parseFloat(i.preis_netto)||0), 0);
+      const sumPraxis = praxisItems.reduce((s,i) => s + i.menge * (parseFloat(i.preis_netto)||0), 0);
+      const sumNetto  = sumLabor + sumPraxis;
+      const mwst      = sumNetto * 0.19;
+      const sumBrutto = sumNetto + mwst;
+      const fmt = v => v.toFixed(2).replace('.',',') + ' €';
+
+      html += `<div class="rechnung-box">
+        <div class="rechnung-title">🧾 Rechnungsaufstellung (Netto-Preise)</div>`;
+      if (sumLabor > 0)  html += `<div class="rechnung-row sub"><span>🧪 Laborbedarf</span><span>${fmt(sumLabor)}</span></div>`;
+      if (sumPraxis > 0) html += `<div class="rechnung-row sub"><span>🏥 Praxisbedarf</span><span>${fmt(sumPraxis)}</span></div>`;
+      html += `<div class="rechnung-row total-netto"><span>Summe Netto</span><span>${fmt(sumNetto)}</span></div>
+        <div class="rechnung-row mwst"><span>+ 19 % MwSt.</span><span>${fmt(mwst)}</span></div>
+        <div class="rechnung-row total-brutto"><span>Gesamt Brutto</span><span>${fmt(sumBrutto)}</span></div>
+        <div class="rechnung-row hint">Sprechstundenbedarf wird über KV-Rezept abgerechnet und erscheint hier nicht.</div>
+      </div>`;
+    }
+
     html += `</div>`;
   });
 
