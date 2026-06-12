@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#1565C0">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Bestellsystem">
+  <meta name="apple-mobile-web-app-title" content="Nordmed Bestellsystem">
   <link rel="manifest" href="manifest.json">
-  <title>Bestellsystem — Praxisgemeinschaft</title>
+  <title>Nordmed Bestellsystem</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -17,18 +17,17 @@
       --blue-d:      #0D47A1;
       --blue-light:  #E3F2FD;
       --blue-mid:    #BBDEFB;
-      --teal:        #00838F;
-      --red:         #C62828;
-      --red-light:   #FFEBEE;
       --green:       #2E7D32;
       --green-light: #E8F5E9;
       --amber:       #E65100;
       --amber-light: #FFF3E0;
+      --red:         #C62828;
       --border:      #BBDEFB;
       --text:        #0D2340;
       --muted:       #4A6080;
       --card:        #fff;
       --bg:          #EEF4FF;
+      --sidebar-w:   220px;
     }
 
     body {
@@ -54,40 +53,25 @@
       box-shadow: 0 12px 48px rgba(13,71,161,.35);
     }
 
-    .login-logo {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
+    .login-logo { text-align: center; margin-bottom: 20px; }
     .login-logo img { max-width: 240px; height: auto; }
 
     .login-box h1 {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--blue-d);
-      text-align: center;
-      margin-bottom: 3px;
+      font-size: 18px; font-weight: 700;
+      color: var(--blue-d); text-align: center; margin-bottom: 3px;
     }
-
     .login-box .subtitle {
-      color: var(--muted);
-      font-size: 12px;
-      text-align: center;
-      margin-bottom: 22px;
+      color: var(--muted); font-size: 12px;
+      text-align: center; margin-bottom: 24px;
     }
 
     #name-step { display: flex; flex-direction: column; gap: 8px; }
 
     .name-btn {
-      width: 100%;
-      padding: 13px;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      background: var(--blue-light);
-      cursor: pointer;
-      font-size: 17px;
-      font-weight: 700;
-      color: var(--text);
+      width: 100%; padding: 13px;
+      border: 2px solid var(--border); border-radius: 12px;
+      background: var(--blue-light); cursor: pointer;
+      font-size: 17px; font-weight: 700; color: var(--text);
       transition: border-color .15s, background .15s;
     }
     .name-btn:hover { border-color: var(--blue); background: #DBEAFE; }
@@ -95,122 +79,165 @@
     #pin-step { display: none; flex-direction: column; gap: 12px; }
     #pin-who { text-align: center; font-size: 14px; font-weight: 600; color: var(--muted); }
     #pin-dots { display: flex; justify-content: center; gap: 10px; margin: 4px 0; }
-
-    .pin-dot {
-      width: 13px; height: 13px;
-      border-radius: 50%;
-      background: var(--border);
-      transition: background .15s;
-    }
+    .pin-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--border); transition: background .15s; }
     .pin-dot.filled { background: var(--blue); }
-
     #pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
-
     .pin-key {
-      padding: 13px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      background: #fff;
-      cursor: pointer;
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text);
-      transition: background .1s;
-      user-select: none;
+      padding: 13px; border: 1.5px solid var(--border); border-radius: 10px;
+      background: #fff; cursor: pointer; font-size: 18px; font-weight: 600;
+      color: var(--text); transition: background .1s; user-select: none;
     }
     .pin-key:hover { background: var(--blue-light); }
     .pin-key:active { background: var(--blue-mid); }
     .pin-key.del { color: var(--muted); font-size: 14px; }
-
     #pin-back {
-      background: none; border: none;
-      color: var(--muted); cursor: pointer;
-      font-size: 13px; text-decoration: underline;
-      text-align: center; margin-top: 2px;
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 13px; text-decoration: underline; text-align: center;
     }
-
     .err { color: var(--red); font-size: 13px; text-align: center; display: none; }
 
     /* ── APP ─────────────────────────────────────────────────────────── */
-    #app { display: none; min-height: 100vh; flex-direction: column; }
+    #app { display: none; height: 100vh; flex-direction: column; overflow: hidden; }
 
     /* ── TOPBAR ─────────────────────────────────────────────────────── */
     #topbar {
       background: linear-gradient(90deg, var(--blue-d) 0%, var(--blue) 100%);
       color: #fff;
-      height: 54px;
+      height: 52px;
       padding: 0 16px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      position: sticky; top: 0; z-index: 50;
+      gap: 14px;
+      flex-shrink: 0;
       box-shadow: 0 2px 8px rgba(13,71,161,.3);
     }
 
-    .topbar-logo-wrap {
-      background: rgba(255,255,255,.9);
-      border-radius: 6px;
-      padding: 3px 8px;
-      display: flex;
-      align-items: center;
-      flex-shrink: 0;
-    }
-    .topbar-logo-wrap img { height: 28px; width: auto; }
+    .topbar-title { font-size: 15px; font-weight: 700; }
 
-    .topbar-title { font-size: 14px; font-weight: 700; flex: 1; }
+    .topbar-contact {
+      display: flex; gap: 14px;
+      font-size: 12px; color: rgba(255,255,255,.8);
+      flex: 1;
+    }
+    .topbar-contact span { white-space: nowrap; }
 
     .chip-user {
       background: rgba(255,255,255,.25);
-      padding: 3px 10px;
-      border-radius: 99px;
-      font-size: 12px;
-      font-weight: 700;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: 12px; font-weight: 700;
     }
 
     .tbtn {
-      background: rgba(255,255,255,.15);
-      border: none; color: #fff;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
+      background: rgba(255,255,255,.15); border: none;
+      color: #fff; padding: 6px 12px; border-radius: 6px;
+      cursor: pointer; font-size: 12px; font-weight: 500;
     }
     .tbtn:hover { background: rgba(255,255,255,.25); }
 
-    /* ── TABS ─────────────────────────────────────────────────────── */
-    #tabs {
-      background: var(--blue-d);
+    /* ── LAYOUT ──────────────────────────────────────────────────────── */
+    #layout {
       display: flex;
-      padding: 0 12px;
+      flex: 1;
+      overflow: hidden;
     }
 
-    .tab {
-      padding: 10px 16px;
+    /* ── SIDEBAR ─────────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 10px 10px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background .12s, border-color .12s;
       font-size: 13px;
       font-weight: 600;
-      color: rgba(255,255,255,.65);
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: color .15s, border-color .15s;
-      white-space: nowrap;
+      color: var(--text);
     }
-    .tab:hover { color: rgba(255,255,255,.9); }
-    .tab.active { color: #fff; border-bottom-color: #fff; }
-    .tab .badge-count {
+    .nav-item:hover { background: var(--blue-light); }
+    .nav-item.active {
+      background: var(--blue-light);
+      border-left-color: var(--blue);
+      color: var(--blue-d);
+    }
+
+    .nav-item .nav-icon { font-size: 16px; }
+    .nav-item .nav-label { flex: 1; }
+
+    .nav-badge {
       background: var(--amber);
       color: #fff;
       font-size: 10px;
       font-weight: 700;
       border-radius: 99px;
-      padding: 1px 6px;
-      margin-left: 5px;
+      padding: 1px 7px;
+      min-width: 20px;
+      text-align: center;
     }
 
-    /* ── CONTENT ─────────────────────────────────────────────────── */
-    #content { flex: 1; padding: 14px 16px 80px; max-width: 960px; margin: 0 auto; width: 100%; }
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 0;
+    }
 
-    /* ── CARDS ───────────────────────────────────────────────────── */
+    /* ── MAIN ────────────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── KATEGORIE TABS ──────────────────────────────────────────────── */
+    #cat-tabs {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .cat-tab {
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .cat-tab:hover { color: var(--text); }
+    .cat-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+    /* ── CONTENT ──────────────────────────────────────────────────────── */
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px 80px;
+    }
+
+    /* ── CARDS ────────────────────────────────────────────────────────── */
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -224,276 +251,180 @@
       padding: 10px 15px;
       background: var(--blue-light);
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; gap: 10px;
     }
+    .card-header h2 { font-size: 14px; font-weight: 700; color: var(--blue-d); flex: 1; }
 
-    .card-header h2 {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--blue-d);
-      flex: 1;
-    }
-
-    /* ── GRUPPE ───────────────────────────────────────────────────── */
+    /* ── GRUPPE ────────────────────────────────────────────────────────── */
     .gruppe-header {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      padding: 9px 15px 5px;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      padding: 8px 15px 4px;
       background: #F8FBFF;
       border-top: 1px solid #EEF4FF;
       border-bottom: 1px solid #EEF4FF;
     }
 
-    /* ── ARTIKEL ZEILE ────────────────────────────────────────────── */
+    /* ── ARTIKEL ZEILE ─────────────────────────────────────────────────── */
     .artikel-row {
-      display: flex;
-      align-items: center;
-      padding: 6px 15px;
-      gap: 10px;
+      display: flex; align-items: center;
+      padding: 6px 15px; gap: 10px;
       border-bottom: 1px solid #F4F8FF;
       transition: background .1s;
     }
     .artikel-row:hover { background: #F8FBFF; }
-    .artikel-row:last-of-type { border-bottom: none; }
 
     .art-farbe {
       width: 10px; height: 10px;
-      border-radius: 50%;
-      border: 1px solid rgba(0,0,0,.12);
+      border-radius: 50%; border: 1px solid rgba(0,0,0,.12);
       flex-shrink: 0;
     }
-
-    .art-name { flex: 1; font-size: 13px; }
-    .art-nr   { font-size: 11px; color: var(--muted); min-width: 90px; }
+    .art-name    { flex: 1; font-size: 13px; }
+    .art-nr      { font-size: 11px; color: var(--muted); min-width: 90px; }
     .art-einheit { font-size: 11px; color: var(--muted); min-width: 70px; text-align: right; }
 
     .menge-input {
-      width: 62px;
-      padding: 5px 6px;
-      border: 1.5px solid var(--border);
-      border-radius: 7px;
-      font-size: 14px;
-      font-weight: 700;
-      text-align: center;
-      outline: none;
-      color: var(--text);
-      background: #fff;
+      width: 62px; padding: 5px 6px;
+      border: 1.5px solid var(--border); border-radius: 7px;
+      font-size: 14px; font-weight: 700; text-align: center;
+      outline: none; color: var(--text); background: #fff;
     }
     .menge-input:focus { border-color: var(--blue); }
     .menge-input.filled { border-color: var(--blue); background: var(--blue-light); color: var(--blue-d); }
 
-    /* ── SONSTIGES ────────────────────────────────────────────────── */
+    /* ── SONSTIGES ────────────────────────────────────────────────────── */
     .sonstiges-bar {
-      padding: 10px 15px;
-      background: #F8FBFF;
+      padding: 10px 15px; background: #F8FBFF;
       border-top: 1px solid var(--border);
-      display: flex;
-      gap: 7px;
-      flex-wrap: wrap;
-      align-items: flex-end;
+      display: flex; gap: 7px; flex-wrap: wrap; align-items: flex-end;
     }
-
     .son-inp {
-      padding: 6px 9px;
-      border: 1.5px solid var(--border);
-      border-radius: 7px;
-      font-size: 13px;
-      outline: none;
-      background: #fff;
-      color: var(--text);
+      padding: 6px 9px; border: 1.5px solid var(--border);
+      border-radius: 7px; font-size: 13px; outline: none;
+      background: #fff; color: var(--text);
     }
     .son-inp:focus { border-color: var(--blue); }
-    .son-name { flex: 1; min-width: 140px; }
-    .son-nr   { width: 100px; }
+    .son-name  { flex: 1; min-width: 140px; }
+    .son-nr    { width: 100px; }
     .son-menge { width: 58px; text-align: center; }
 
-    /* ── BUTTONS ──────────────────────────────────────────────────── */
+    /* ── BUTTONS ───────────────────────────────────────────────────────── */
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 8px 15px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      transition: opacity .15s, background .15s;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 15px; border-radius: 8px; border: none;
+      cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: opacity .15s, background .15s; white-space: nowrap;
     }
     .btn:disabled { opacity: .4; cursor: default; }
-    .btn-blue    { background: var(--blue);  color: #fff; }
+    .btn-blue    { background: var(--blue); color: #fff; }
     .btn-blue:hover { background: var(--blue-d); }
-    .btn-teal    { background: var(--teal);  color: #fff; }
-    .btn-teal:hover { opacity: .85; }
+    .btn-save    { background: rgba(21,101,192,.45); color: var(--blue-d); }
+    .btn-save:hover { background: rgba(21,101,192,.6); }
     .btn-green   { background: var(--green); color: #fff; }
     .btn-green:hover { opacity: .85; }
-    .btn-red     { background: var(--red);   color: #fff; }
-    .btn-outline {
-      background: transparent;
-      border: 1.5px solid var(--border);
-      color: var(--text);
-    }
+    .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
     .btn-outline:hover { border-color: var(--blue); color: var(--blue); }
 
-    /* ── ACTIONS BAR ──────────────────────────────────────────────── */
+    /* ── ACTIONS BAR ───────────────────────────────────────────────────── */
     .actions-bar {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      background: #fff;
-      border-top: 1px solid var(--border);
+      position: fixed; bottom: 0;
+      left: var(--sidebar-w); right: 0;
+      background: #fff; border-top: 1px solid var(--border);
       padding: 10px 20px;
-      display: none;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      box-shadow: 0 -2px 10px rgba(21,101,192,.1);
-      z-index: 40;
+      display: none; gap: 10px; align-items: center; flex-wrap: wrap;
+      box-shadow: 0 -2px 10px rgba(21,101,192,.1); z-index: 40;
     }
     .actions-bar.visible { display: flex; }
     .actions-spacer { flex: 1; }
     .actions-info { font-size: 12px; color: var(--muted); }
 
-    /* ── BADGES ───────────────────────────────────────────────────── */
+    /* ── BADGES ────────────────────────────────────────────────────────── */
     .badge {
-      display: inline-block;
-      padding: 3px 9px;
-      border-radius: 99px;
-      font-size: 11px;
-      font-weight: 700;
+      display: inline-block; padding: 3px 9px;
+      border-radius: 99px; font-size: 11px; font-weight: 700;
     }
-    .badge-aktuell     { background: var(--amber-light); color: var(--amber); }
-    .badge-bestellt    { background: var(--blue-light);  color: var(--blue-d); }
-    .badge-abgeschlossen { background: var(--green-light); color: var(--green); }
+    .badge-aktuell      { background: var(--amber-light); color: var(--amber); }
+    .badge-bestellt     { background: var(--blue-light);  color: var(--blue-d); }
+    .badge-abgeschlossen{ background: var(--green-light); color: var(--green); }
 
-    /* ── ORDER CARDS (Bestellt / Archiv) ──────────────────────────── */
+    /* ── ORDER CARDS ───────────────────────────────────────────────────── */
     .order-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      margin-bottom: 12px;
-      overflow: hidden;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; margin-bottom: 12px; overflow: hidden;
       box-shadow: 0 1px 4px rgba(21,101,192,.07);
     }
-
     .order-header {
-      padding: 11px 15px;
-      background: var(--blue-light);
+      padding: 11px 15px; background: var(--blue-light);
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     }
-
     .order-meta { font-size: 12px; color: var(--muted); }
 
-    /* ── CHECK ROWS ───────────────────────────────────────────────── */
+    /* ── CHECK ROWS ─────────────────────────────────────────────────────── */
     .check-row {
-      display: flex;
-      align-items: center;
-      padding: 8px 15px;
-      gap: 12px;
+      display: flex; align-items: center;
+      padding: 8px 15px; gap: 12px;
       border-bottom: 1px solid #F4F8FF;
     }
     .check-row:last-child { border-bottom: none; }
     .check-row.done .cr-name { text-decoration: line-through; color: var(--muted); }
-
     .check-row input[type=checkbox] {
-      width: 18px; height: 18px;
-      cursor: pointer;
-      accent-color: var(--blue);
-      flex-shrink: 0;
+      width: 18px; height: 18px; cursor: pointer;
+      accent-color: var(--blue); flex-shrink: 0;
     }
-
     .cr-name  { flex: 1; font-size: 13px; }
     .cr-menge { font-size: 12px; color: var(--muted); white-space: nowrap; }
     .cr-by    { font-size: 11px; color: var(--green); white-space: nowrap; }
 
-    /* ── ARCHIV ───────────────────────────────────────────────────── */
+    /* ── ARCHIV ─────────────────────────────────────────────────────────── */
     .archiv-section-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .06em;
+      font-size: 12px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
       padding: 14px 4px 6px;
     }
 
-    /* ── STATUS INFO BANNER ───────────────────────────────────────── */
+    /* ── INFO BANNER ────────────────────────────────────────────────────── */
     .info-banner {
-      background: var(--blue-light);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 14px;
-      margin-bottom: 12px;
-      font-size: 13px;
-      color: var(--blue-d);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      background: var(--blue-light); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;
+      font-size: 13px; color: var(--blue-d);
+      display: flex; align-items: center; gap: 8px;
     }
 
-    /* ── LOADING / EMPTY ──────────────────────────────────────────── */
-    .loading {
-      text-align: center;
-      padding: 50px 20px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .empty {
-      text-align: center;
-      padding: 50px 20px;
-      color: var(--muted);
-    }
+    /* ── LOADING / EMPTY ────────────────────────────────────────────────── */
+    .loading { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 14px; }
+    .empty { text-align: center; padding: 50px 20px; color: var(--muted); }
     .empty .icon { font-size: 42px; margin-bottom: 12px; }
     .empty p { font-size: 14px; }
 
-    /* ── TOAST ────────────────────────────────────────────────────── */
+    /* ── TOAST ──────────────────────────────────────────────────────────── */
     #toast {
-      position: fixed;
-      bottom: 68px; left: 50%;
+      position: fixed; bottom: 68px; left: 50%;
       transform: translateX(-50%) translateY(40px);
-      background: var(--blue-d);
-      color: #fff;
-      padding: 10px 22px;
-      border-radius: 99px;
-      font-size: 13px;
-      font-weight: 500;
-      opacity: 0;
-      transition: opacity .3s, transform .3s;
-      z-index: 999;
-      pointer-events: none;
-      white-space: nowrap;
+      background: var(--blue-d); color: #fff;
+      padding: 10px 22px; border-radius: 99px;
+      font-size: 13px; font-weight: 500;
+      opacity: 0; transition: opacity .3s, transform .3s;
+      z-index: 999; pointer-events: none; white-space: nowrap;
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ── PRINT ────────────────────────────────────────────────────── */
+    /* ── PRINT ──────────────────────────────────────────────────────────── */
     @media print {
-      #topbar, #tabs, .actions-bar, .sonstiges-bar,
-      .btn, #toast, .print-hide { display: none !important; }
+      #topbar, #sidebar, #cat-tabs, .actions-bar,
+      .sonstiges-bar, .btn, #toast { display: none !important; }
       body { background: #fff; }
-      #content { padding: 0; max-width: none; }
-      .card { border: 1px solid #ccc; box-shadow: none; margin-bottom: 12px; break-inside: avoid; }
+      #content { padding: 0; }
+      .card { border: 1px solid #ccc; box-shadow: none; margin-bottom: 12px; }
       .card-header { background: #f0f0f0; }
-      .print-break-before { page-break-before: always; }
-      .menge-input { border: 1px solid #aaa; }
-
-      /* Nur Karten mit Inhalt drucken */
-      .print-hide-if-empty:not(:has(.artikel-row)) { display: none !important; }
     }
 
-    @media (max-width: 600px) {
+    /* ── RESPONSIVE ─────────────────────────────────────────────────────── */
+    @media (max-width: 700px) {
+      :root { --sidebar-w: 0px; }
+      #sidebar { display: none; }
+      .actions-bar { left: 0; }
       .art-nr { display: none; }
-      .art-einheit { min-width: 55px; }
-      #content { padding: 10px 10px 80px; }
     }
   </style>
 </head>
@@ -505,11 +436,10 @@
     <div class="login-logo">
       <img src="Logo_PGmitKranOhneNamen.png" alt="Praxisgemeinschaft am Rostocker Stadthafen">
     </div>
-    <h1>Bestellsystem</h1>
-    <p class="subtitle">Praxisgemeinschaft am Rostocker Stadthafen</p>
+    <h1>Nordmed Bestellsystem</h1>
+    <p class="subtitle">Medizinisches Labor Rostock</p>
 
     <div id="name-step"></div>
-
     <div id="pin-step">
       <div id="pin-who"></div>
       <div id="pin-dots"></div>
@@ -522,37 +452,73 @@
 
 <!-- ── APP ────────────────────────────────────────────────────────────── -->
 <div id="app">
+
+  <!-- TOPBAR -->
   <div id="topbar">
-    <div class="topbar-logo-wrap">
-      <img src="Logo_PGmitKranOhneNamen.png" alt="Logo">
+    <span class="topbar-title">Nordmed Bestellsystem</span>
+    <div class="topbar-contact">
+      <span>📞 0381 / 702 2170</span>
+      <span>📠 0381 / 702 2179</span>
     </div>
-    <span class="topbar-title">Bestellsystem</span>
     <span class="chip-user" id="chip-user"></span>
     <button class="tbtn" onclick="doLogout()">Abmelden</button>
   </div>
 
-  <div id="tabs">
-    <div class="tab active" data-view="bestellung" onclick="switchView('bestellung')">📦 Bestellung</div>
-    <div class="tab" data-view="bestellt" onclick="switchView('bestellt')">
-      📬 Bestellt<span class="badge-count" id="badge-bestellt" style="display:none"></span>
+  <!-- LAYOUT -->
+  <div id="layout">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <div class="sidebar-section">Bestellungen</div>
+
+      <div class="nav-item active" data-view="bestellung" onclick="switchView('bestellung')">
+        <span class="nav-icon">📦</span>
+        <span class="nav-label">Bestellung</span>
+      </div>
+
+      <div class="nav-item" data-view="bestellt" onclick="switchView('bestellt')">
+        <span class="nav-icon">📬</span>
+        <span class="nav-label">Bestellt</span>
+        <span class="nav-badge" id="badge-bestellt" style="display:none"></span>
+      </div>
+
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section">Verlauf</div>
+
+      <div class="nav-item" data-view="archiv" onclick="switchView('archiv')">
+        <span class="nav-icon">📁</span>
+        <span class="nav-label">Archiv</span>
+      </div>
     </div>
-    <div class="tab" data-view="archiv" onclick="switchView('archiv')">📁 Archiv</div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+      <!-- Kategorie-Tabs (nur bei Bestellung) -->
+      <div id="cat-tabs" style="display:none">
+        <div class="cat-tab active" data-cat="labor"       onclick="switchCat('labor')">🧪 Labor</div>
+        <div class="cat-tab"        data-cat="praxis"      onclick="switchCat('praxis')">🏥 Praxis</div>
+        <div class="cat-tab"        data-cat="sprechstunde" onclick="switchCat('sprechstunde')">📋 Sprechstundenbedarf</div>
+      </div>
+
+      <!-- Content -->
+      <div id="content">
+        <div id="view-bestellung"></div>
+        <div id="view-bestellt"   style="display:none"></div>
+        <div id="view-archiv"     style="display:none"></div>
+      </div>
+    </div>
   </div>
 
-  <div id="content">
-    <div id="view-bestellung"></div>
-    <div id="view-bestellt"  style="display:none"></div>
-    <div id="view-archiv"    style="display:none"></div>
-  </div>
-
-  <!-- Aktionsleiste (nur Bestellung) -->
+  <!-- Aktionsleiste -->
   <div class="actions-bar" id="actions-bar">
     <span class="actions-info" id="actions-info"></span>
     <div class="actions-spacer"></div>
     <button class="btn btn-outline" onclick="window.print()">🖨 Drucken</button>
-    <button class="btn btn-outline" onclick="saveOrder()">💾 Speichern</button>
+    <button class="btn btn-save"    onclick="saveOrder()">💾 Speichern</button>
     <button class="btn btn-blue"    onclick="submitOrder()">📬 Bestellen →</button>
   </div>
+
 </div>
 
 <div id="toast"></div>
@@ -568,15 +534,16 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let currentUser  = null;
-let pinBuffer    = '';
-let selectedStaff = null;
-let allStaff     = [];
-let articles     = [];        // alle Artikel aus DB
-let currentOrder = null;      // aktive Bestellung (status=aktuell)
-let savedQtys    = {};        // artikel_id → menge (aus DB gespeichert)
-let savedSonstiges = [];      // custom Positionen ohne artikel_id
-let currentView  = 'bestellung';
+let currentUser    = null;
+let pinBuffer      = '';
+let selectedStaff  = null;
+let allStaff       = [];
+let articles       = [];
+let currentOrder   = null;
+let savedQtys      = {};
+let savedSonstiges = [];
+let currentView    = 'bestellung';
+let currentCat     = 'labor';
 
 // ─── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -615,9 +582,7 @@ function buildLoginUI() {
   const pad  = document.getElementById('pin-pad');
   const dots = document.getElementById('pin-dots');
   for (let i = 0; i < 6; i++) {
-    const d = document.createElement('div');
-    d.className = 'pin-dot';
-    dots.appendChild(d);
+    const d = document.createElement('div'); d.className = 'pin-dot'; dots.appendChild(d);
   }
   [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k => {
     if (k === '') { pad.appendChild(document.createElement('div')); return; }
@@ -666,17 +631,13 @@ async function doLogin() {
   if (!selectedStaff || pinBuffer.length < 6) return;
   document.getElementById('pin-err').style.display = 'none';
   const pin = pinBuffer; pinBuffer = ''; updateDots();
-  const { error } = await db.auth.signInWithPassword({
-    email: selectedStaff.email, password: pin
-  });
+  const { error } = await db.auth.signInWithPassword({ email: selectedStaff.email, password: pin });
   if (error) { document.getElementById('pin-err').style.display = 'block'; }
   else { currentUser = selectedStaff; await showApp(); }
 }
 
 async function doLogout() {
-  await db.auth.signOut();
-  currentUser = null;
-  showLogin();
+  await db.auth.signOut(); currentUser = null; showLogin();
 }
 
 function showLogin() {
@@ -695,44 +656,51 @@ async function showApp() {
   switchView('bestellung');
 }
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
 function switchView(view) {
   currentView = view;
-  document.querySelectorAll('.tab').forEach(t =>
-    t.classList.toggle('active', t.dataset.view === view));
+  document.querySelectorAll('.nav-item').forEach(n =>
+    n.classList.toggle('active', n.dataset.view === view));
   ['bestellung','bestellt','archiv'].forEach(v =>
     document.getElementById('view-' + v).style.display = v === view ? '' : 'none');
 
+  const catTabs = document.getElementById('cat-tabs');
+  const actionsBar = document.getElementById('actions-bar');
+
   if (view === 'bestellung') {
-    document.getElementById('actions-bar').classList.add('visible');
+    catTabs.style.display = 'flex';
+    actionsBar.classList.add('visible');
     loadBestellungView();
   } else {
-    document.getElementById('actions-bar').classList.remove('visible');
+    catTabs.style.display = 'none';
+    actionsBar.classList.remove('visible');
     if (view === 'bestellt') loadBestelltView();
     if (view === 'archiv')   loadArchivView();
   }
+}
+
+function switchCat(cat) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.cat === cat));
+  renderCurrentCat();
 }
 
 // ─── BESTELLUNG VIEW ──────────────────────────────────────────────────────────
 async function loadBestellungView() {
   const view = document.getElementById('view-bestellung');
   view.innerHTML = '<div class="loading">Lade Artikel…</div>';
-  document.getElementById('actions-info').textContent = '';
 
-  // Artikel laden
   const { data: artData } = await db.from('bestell_artikel')
     .select('*').eq('aktiv', true).order('sort_order');
   articles = artData || [];
 
-  // Aktuelle Bestellung laden
   const { data: orderData } = await db.from('bestell_auftraege')
     .select('*').eq('status', 'aktuell')
     .order('erstellt_am', { ascending: false }).limit(1);
   currentOrder = orderData?.[0] || null;
 
-  // Gespeicherte Positionen laden
-  savedQtys = {};
-  savedSonstiges = [];
+  savedQtys = {}; savedSonstiges = [];
   if (currentOrder) {
     const { data: posData } = await db.from('bestell_positionen')
       .select('*').eq('auftrag_id', currentOrder.id);
@@ -742,99 +710,80 @@ async function loadBestellungView() {
     });
   }
 
-  renderBestellungView(view);
+  renderCurrentCat();
 }
 
-function renderBestellungView(view) {
-  const CATS = [
-    { key: 'labor',       label: '🧪 Laborbedarf',          printBreak: false },
-    { key: 'praxis',      label: '🏥 Praxisbedarf',         printBreak: false },
-    { key: 'sprechstunde',label: '📋 Sprechstundenbedarf',  printBreak: true  },
-  ];
+function renderCurrentCat() {
+  const view = document.getElementById('view-bestellung');
+  const cat  = currentCat;
+
+  const CATLABELS = { labor: '🧪 Laborbedarf', praxis: '🏥 Praxisbedarf', sprechstunde: '📋 Sprechstundenbedarf' };
+  const catArts   = articles.filter(a => a.kategorie === cat);
+  const gruppen   = [...new Set(catArts.map(a => a.gruppe))];
+  const catSon    = savedSonstiges.filter(s => s.kategorie === cat);
 
   let html = '';
 
-  // Status-Banner
   if (currentOrder) {
-    html += `<div class="info-banner">
-      <span>📝</span>
-      <span><strong>Bestellung in Bearbeitung</strong> — begonnen ${fmtDate(currentOrder.erstellt_am)}
-      von ${esc(currentOrder.erstellt_von)}</span>
-    </div>`;
+    html += `<div class="info-banner">📝 <span><strong>Bestellung in Bearbeitung</strong> — begonnen ${fmtDate(currentOrder.erstellt_am)} von ${esc(currentOrder.erstellt_von)}</span></div>`;
   }
 
-  CATS.forEach(cat => {
-    const catArts = articles.filter(a => a.kategorie === cat.key);
-    const gruppen = [...new Set(catArts.map(a => a.gruppe))];
-    const catSonstiges = savedSonstiges.filter(s => s.kategorie === cat.key);
-
-    html += `<div class="card${cat.printBreak ? ' print-break-before' : ''}">
-      <div class="card-header">
-        <h2>${cat.label}</h2>
-        <span style="font-size:12px;color:var(--muted)">${catArts.length} Artikel</span>
-      </div>`;
-
-    if (gruppen.length === 0 && catSonstiges.length === 0) {
-      html += `<div style="padding:18px 15px;color:var(--muted);font-size:13px">
-        Noch keine Artikel — bitte über „+ Hinzufügen" ergänzen oder markierten Bestellschein einreichen.
-      </div>`;
-    }
-
-    gruppen.forEach(gruppe => {
-      html += `<div class="gruppe-header">${esc(gruppe)}</div>`;
-      catArts.filter(a => a.gruppe === gruppe).forEach(art => {
-        const qty     = savedQtys[art.id] || '';
-        const filled  = qty ? ' filled' : '';
-        const fStyle  = farbenStyle(art.farbe);
-        html += `<div class="artikel-row">
-          <div class="art-farbe" style="${fStyle}"></div>
-          <div class="art-name">${esc(art.name)}</div>
-          <div class="art-nr">${esc(art.artikelnummer)}</div>
-          <div class="art-einheit">${esc(art.einheit)}</div>
-          <input type="number" min="0" step="1" placeholder="0"
-            class="menge-input${filled}"
-            value="${esc(String(qty))}"
-            data-id="${art.id}"
-            data-kat="${art.kategorie}"
-            data-gruppe="${esc(art.gruppe)}"
-            data-name="${esc(art.name)}"
-            data-nr="${esc(art.artikelnummer)}"
-            data-einheit="${esc(art.einheit)}"
-            oninput="onQtyInput(this)">
-        </div>`;
-      });
-    });
-
-    // Gespeicherte Sonstiges dieser Kategorie anzeigen
-    if (catSonstiges.length > 0) {
-      html += `<div class="gruppe-header">Sonstiges</div>`;
-      catSonstiges.forEach(s => {
-        html += `<div class="artikel-row">
-          <div class="art-farbe" style="background:#eee"></div>
-          <div class="art-name">${esc(s.name)}</div>
-          <div class="art-nr">${esc(s.artikelnummer || '')}</div>
-          <div class="art-einheit">${esc(s.einheit)}</div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="menge-input filled" style="display:flex;align-items:center;justify-content:center">${s.menge}</span>
-            <button onclick="deleteSonstiges('${s.id}')" title="Entfernen"
-              style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px">✕</button>
-          </div>
-        </div>`;
-      });
-    }
-
-    // Sonstiges-Formular
-    html += `<div class="sonstiges-bar">
-      <input class="son-inp son-name" type="text"    placeholder="Artikel hinzufügen…" id="son-name-${cat.key}">
-      <input class="son-inp son-nr"   type="text"    placeholder="Art.-Nr."            id="son-nr-${cat.key}">
-      <input class="son-inp son-menge" type="number" placeholder="Menge" min="1"        id="son-menge-${cat.key}">
-      <button class="btn btn-outline print-hide" style="font-size:12px;padding:6px 11px"
-        onclick="addSonstiges('${cat.key}')">+ Hinzufügen</button>
+  html += `<div class="card">
+    <div class="card-header">
+      <h2>${CATLABELS[cat]}</h2>
+      <span style="font-size:12px;color:var(--muted)">${catArts.length} Artikel</span>
     </div>`;
 
-    html += `</div>`; // card
+  if (gruppen.length === 0 && catSon.length === 0) {
+    html += `<div style="padding:20px 15px;color:var(--muted);font-size:13px">Noch keine Artikel — bitte markierten Bestellschein einreichen.</div>`;
+  }
+
+  gruppen.forEach(gruppe => {
+    html += `<div class="gruppe-header">${esc(gruppe)}</div>`;
+    catArts.filter(a => a.gruppe === gruppe).forEach(art => {
+      const qty    = savedQtys[art.id] || '';
+      const filled = qty ? ' filled' : '';
+      html += `<div class="artikel-row">
+        <div class="art-farbe" style="${farbenStyle(art.farbe)}"></div>
+        <div class="art-name">${esc(art.name)}</div>
+        <div class="art-nr">${esc(art.artikelnummer)}</div>
+        <div class="art-einheit">${esc(art.einheit)}</div>
+        <input type="number" min="0" step="1" placeholder="0"
+          class="menge-input${filled}" value="${esc(String(qty))}"
+          data-id="${art.id}" data-kat="${art.kategorie}"
+          data-gruppe="${esc(art.gruppe)}" data-name="${esc(art.name)}"
+          data-nr="${esc(art.artikelnummer)}" data-einheit="${esc(art.einheit)}"
+          oninput="onQtyInput(this)">
+      </div>`;
+    });
   });
 
+  if (catSon.length > 0) {
+    html += `<div class="gruppe-header">Sonstiges</div>`;
+    catSon.forEach(s => {
+      html += `<div class="artikel-row">
+        <div class="art-farbe" style="background:#eee"></div>
+        <div class="art-name">${esc(s.name)}</div>
+        <div class="art-nr">${esc(s.artikelnummer || '')}</div>
+        <div class="art-einheit">${esc(s.einheit)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="menge-input filled" style="display:flex;align-items:center;justify-content:center">${s.menge}</span>
+          <button onclick="deleteSonstiges('${s.id}')" title="Entfernen"
+            style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px">✕</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  html += `<div class="sonstiges-bar">
+    <input class="son-inp son-name"  type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}">
+    <input class="son-inp son-nr"    type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}">
+    <input class="son-inp son-menge" type="number" placeholder="Menge" min="1"       id="son-menge-${cat}">
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 11px"
+      onclick="addSonstiges('${cat}')">+ Hinzufügen</button>
+  </div>`;
+
+  html += `</div>`;
   view.innerHTML = html;
   updateActionsInfo();
 }
@@ -852,8 +801,7 @@ function farbenStyle(farbe) {
 }
 
 function onQtyInput(inp) {
-  const v = parseInt(inp.value) || 0;
-  inp.classList.toggle('filled', v > 0);
+  inp.classList.toggle('filled', (parseInt(inp.value) || 0) > 0);
   updateActionsInfo();
 }
 
@@ -862,6 +810,7 @@ function updateActionsInfo() {
   document.querySelectorAll('.menge-input[data-id]').forEach(inp => {
     if ((parseInt(inp.value) || 0) > 0) count++;
   });
+  // Zähle auch gespeicherte Sonstiges aller Kategorien
   count += savedSonstiges.length;
   const el = document.getElementById('actions-info');
   if (el) el.textContent = count > 0 ? `${count} Artikel ausgewählt` : '';
@@ -874,13 +823,9 @@ function collectPositions() {
     const menge = parseInt(inp.value) || 0;
     if (menge <= 0) return;
     pos.push({
-      artikel_id:   inp.dataset.id,
-      kategorie:    inp.dataset.kat,
-      gruppe:       inp.dataset.gruppe,
-      name:         inp.dataset.name,
-      artikelnummer: inp.dataset.nr || '',
-      einheit:      inp.dataset.einheit || 'Stück',
-      menge,
+      artikel_id: inp.dataset.id, kategorie: inp.dataset.kat,
+      gruppe: inp.dataset.gruppe, name: inp.dataset.name,
+      artikelnummer: inp.dataset.nr || '', einheit: inp.dataset.einheit || 'Stück', menge,
     });
   });
   return pos;
@@ -895,17 +840,14 @@ async function saveOrder(silent = false) {
     return false;
   }
 
-  // Neue Bestellung anlegen falls keine existiert
   if (!currentOrder) {
     const { data, error } = await db.from('bestell_auftraege').insert({
-      status: 'aktuell',
-      erstellt_von: currentUser.anzeigename,
+      status: 'aktuell', erstellt_von: currentUser.anzeigename,
     }).select().single();
     if (error) { showToast('⚠️ Fehler beim Speichern.'); return false; }
     currentOrder = data;
   }
 
-  // Alle regulären Positionen (mit artikel_id) löschen und neu einsetzen
   await db.from('bestell_positionen')
     .delete().eq('auftrag_id', currentOrder.id).not('artikel_id', 'is', null);
 
@@ -915,7 +857,6 @@ async function saveOrder(silent = false) {
     if (error) { showToast('⚠️ Fehler beim Speichern.'); return false; }
   }
 
-  // Cache aktualisieren
   savedQtys = {};
   positions.forEach(p => { savedQtys[p.artikel_id] = p.menge; });
 
@@ -934,49 +875,37 @@ async function submitOrder() {
   if (!ok || !currentOrder) return;
 
   const { error } = await db.from('bestell_auftraege').update({
-    status:      'bestellt',
-    bestellt_von: currentUser.anzeigename,
+    status: 'bestellt', bestellt_von: currentUser.anzeigename,
     bestellt_am: new Date().toISOString(),
   }).eq('id', currentOrder.id);
 
   if (error) { showToast('⚠️ Fehler beim Absenden.'); return; }
 
-  currentOrder   = null;
-  savedQtys      = {};
-  savedSonstiges = [];
+  currentOrder = null; savedQtys = {}; savedSonstiges = [];
   showToast('✅ Bestellung abgesendet!');
   await updateBestelltBadge();
   loadBestellungView();
 }
 
-// ─── SONSTIGES HINZUFÜGEN ─────────────────────────────────────────────────────
+// ─── SONSTIGES ────────────────────────────────────────────────────────────────
 async function addSonstiges(kat) {
   const nameEl  = document.getElementById(`son-name-${kat}`);
   const nrEl    = document.getElementById(`son-nr-${kat}`);
   const mengeEl = document.getElementById(`son-menge-${kat}`);
-
   const name  = nameEl.value.trim();
   const nr    = nrEl.value.trim();
   const menge = parseInt(mengeEl.value) || 0;
-
   if (!name)    { showToast('Bitte Artikelname eingeben.'); return; }
   if (menge < 1){ showToast('Bitte Menge eingeben.'); return; }
 
-  // Erst reguläre Positionen speichern
   await saveOrder(true);
   if (!currentOrder) return;
 
   const { error } = await db.from('bestell_positionen').insert({
-    auftrag_id:   currentOrder.id,
-    artikel_id:   null,
-    kategorie:    kat,
-    gruppe:       'Sonstiges',
-    name,
-    artikelnummer: nr,
-    einheit:      'Stück',
-    menge,
+    auftrag_id: currentOrder.id, artikel_id: null,
+    kategorie: kat, gruppe: 'Sonstiges', name, artikelnummer: nr,
+    einheit: 'Stück', menge,
   });
-
   if (error) { showToast('⚠️ Fehler.'); return; }
 
   nameEl.value = ''; nrEl.value = ''; mengeEl.value = '';
@@ -1006,36 +935,32 @@ async function loadBestelltView() {
     return;
   }
 
+  const CATS = [
+    { key:'labor', label:'🧪 Labor' },
+    { key:'praxis', label:'🏥 Praxis' },
+    { key:'sprechstunde', label:'📋 Sprechstundenbedarf' },
+  ];
+
   let html = '';
   orders.forEach(order => {
-    const items    = order.bestell_positionen || [];
-    const total    = items.length;
-    const done     = items.filter(i => i.erhalten).length;
-    const allDone  = total > 0 && done === total;
+    const items   = order.bestell_positionen || [];
+    const done    = items.filter(i => i.erhalten).length;
+    const allDone = items.length > 0 && done === items.length;
 
     html += `<div class="order-card">
       <div class="order-header">
         <span class="badge badge-bestellt">Bestellt</span>
         <span style="font-size:13px;font-weight:600">${fmtDate(order.bestellt_am)}</span>
         <span class="order-meta">von ${esc(order.bestellt_von || '')}</span>
-        <span class="order-meta" style="margin-left:auto">${done}/${total} erhalten</span>
-        ${allDone
-          ? `<button class="btn btn-green" style="font-size:12px;padding:6px 12px"
-              onclick="completeOrder('${order.id}')">✓ Abschließen</button>`
-          : ''}
+        <span class="order-meta" style="margin-left:auto">${done}/${items.length} erhalten</span>
+        ${allDone ? `<button class="btn btn-green" style="font-size:12px;padding:6px 12px" onclick="completeOrder('${order.id}')">✓ Abschließen</button>` : ''}
       </div>`;
 
-    const CATS = [
-      { key:'labor',       label:'🧪 Labor'       },
-      { key:'praxis',      label:'🏥 Praxis'      },
-      { key:'sprechstunde',label:'📋 Sprechstunde'},
-    ];
-
     CATS.forEach(cat => {
-      const catItems = items.filter(i => i.kategorie === cat.key);
-      if (!catItems.length) return;
+      const ci = items.filter(i => i.kategorie === cat.key);
+      if (!ci.length) return;
       html += `<div class="gruppe-header">${cat.label}</div>`;
-      catItems.forEach(item => {
+      ci.forEach(item => {
         const doneClass = item.erhalten ? ' done' : '';
         const byText    = item.erhalten ? `✓ ${item.erhalten_von || ''}` : '';
         html += `<div class="check-row${doneClass}">
@@ -1049,7 +974,6 @@ async function loadBestelltView() {
         </div>`;
       });
     });
-
     html += `</div>`;
   });
 
@@ -1067,9 +991,9 @@ async function toggleErhalten(posId, orderId, checked) {
 async function completeOrder(orderId) {
   if (!confirm('Bestellung vollständig erhalten — jetzt abschließen?')) return;
   await db.from('bestell_auftraege').update({
-    status:           'abgeschlossen',
+    status: 'abgeschlossen',
     abgeschlossen_von: currentUser.anzeigename,
-    abgeschlossen_am:  new Date().toISOString(),
+    abgeschlossen_am: new Date().toISOString(),
   }).eq('id', orderId);
   showToast('✅ Bestellung abgeschlossen!');
   await updateBestelltBadge();
@@ -1081,12 +1005,8 @@ async function updateBestelltBadge() {
     .select('*', { count: 'exact', head: true }).eq('status', 'bestellt');
   const badge = document.getElementById('badge-bestellt');
   if (!badge) return;
-  if (count && count > 0) {
-    badge.textContent = count;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
+  if (count && count > 0) { badge.textContent = count; badge.style.display = ''; }
+  else badge.style.display = 'none';
 }
 
 // ─── ARCHIV VIEW ──────────────────────────────────────────────────────────────
@@ -1104,24 +1024,25 @@ async function loadArchivView() {
     return;
   }
 
-  // Nach Jahr-Monat gruppieren
   const grouped = {};
   orders.forEach(o => {
-    const d   = new Date(o.abgeschlossen_am);
+    const d = new Date(o.abgeschlossen_am);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const label = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
     if (!grouped[key]) grouped[key] = { label, orders: [] };
     grouped[key].orders.push(o);
   });
 
+  const CATS = [
+    { key:'labor', label:'🧪 Labor' },
+    { key:'praxis', label:'🏥 Praxis' },
+    { key:'sprechstunde', label:'📋 Sprechstundenbedarf' },
+  ];
+
   let html = '';
   Object.keys(grouped).sort().reverse().forEach(key => {
     const g = grouped[key];
-    const totalPos = g.orders.reduce((s,o) => s + (o.bestell_positionen?.length || 0), 0);
-    html += `<div class="archiv-section-title">
-      ${g.label} — ${g.orders.length} Bestellung${g.orders.length!==1?'en':''}, ${totalPos} Positionen
-    </div>`;
-
+    html += `<div class="archiv-section-title">${g.label} — ${g.orders.length} Bestellung${g.orders.length!==1?'en':''}</div>`;
     g.orders.forEach(order => {
       const items = order.bestell_positionen || [];
       html += `<div class="order-card">
@@ -1132,12 +1053,6 @@ async function loadArchivView() {
           <span class="order-meta" style="margin-left:auto">${items.length} Positionen ▾</span>
         </div>
         <div id="a-${order.id}" style="display:none">`;
-
-      const CATS = [
-        { key:'labor',       label:'🧪 Labor'       },
-        { key:'praxis',      label:'🏥 Praxis'      },
-        { key:'sprechstunde',label:'📋 Sprechstunde'},
-      ];
       CATS.forEach(cat => {
         const ci = items.filter(i => i.kategorie === cat.key);
         if (!ci.length) return;
@@ -1151,7 +1066,6 @@ async function loadArchivView() {
           </div>`;
         });
       });
-
       html += `</div></div>`;
     });
   });
@@ -1172,20 +1086,17 @@ function showToast(msg) {
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove('show'), 3500);
 }
-
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
-  return d.toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'2-digit'})
-    + ' ' + d.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+  return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'})
+    + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
 }
-
 function fmtDateFull(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('de-DE',
     {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 }
-
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
