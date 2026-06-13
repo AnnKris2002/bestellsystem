@@ -364,6 +364,12 @@
     .son-inp.son-nr      { width: 100px; flex-shrink: 0; }
     .son-inp.son-einheit { width: 80px;  flex-shrink: 0; }
     .son-inp.son-menge   { width: 72px;  flex-shrink: 0; text-align: center; }
+    .son-spacer          { width: 30px;  flex-shrink: 0; }
+
+    /* Pfeile aus allen Zahlenfeldern entfernen */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
 
     .sonstiges-btn-row {
       display: flex; justify-content: flex-end;
@@ -851,6 +857,7 @@ function renderCurrentCat() {
 
   html += `<div class="sonstiges-bar">
     <div class="sonstiges-inputs">
+      <div class="son-spacer"></div>
       <input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}">
       <input class="son-inp son-nr"      type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}">
       <input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}">
