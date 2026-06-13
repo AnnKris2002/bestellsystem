@@ -1016,7 +1016,13 @@ async function addSonstiges(kat) {
   if (menge < 1){ showToast('Bitte Menge eingeben.'); return; }
 
   await saveOrder(true);
-  if (!currentOrder) return;
+  if (!currentOrder) {
+    const { data, error } = await db.from('bestell_auftraege').insert({
+      status: 'aktuell', erstellt_von: currentUser.anzeigename,
+    }).select().single();
+    if (error) { showToast('⚠️ Fehler beim Anlegen des Auftrags.'); return; }
+    currentOrder = data;
+  }
 
   const { error } = await db.from('bestell_positionen').insert({
     auftrag_id: currentOrder.id, artikel_id: null,
@@ -1098,8 +1104,9 @@ async function loadBestelltView() {
     });
 
     // ── Rechnungsaufstellung (nur Labor + Praxis) ──────────────────
+    const hasLabor  = items.some(i => i.kategorie === 'labor');
     const rechnItems = items.filter(i => i.kategorie !== 'sprechstunde' && (parseFloat(i.preis_netto)||0) > 0);
-    if (rechnItems.length > 0) {
+    if (rechnItems.length > 0 || hasLabor) {
       const laborItems  = rechnItems.filter(i => i.kategorie === 'labor');
       const praxisItems = rechnItems.filter(i => i.kategorie === 'praxis');
       const sumLabor  = laborItems.reduce( (s,i) => s + i.menge * (parseFloat(i.preis_netto)||0), 0);
@@ -1111,7 +1118,7 @@ async function loadBestelltView() {
 
       html += `<div class="rechnung-box">
         <div class="rechnung-title">🧾 Rechnungsaufstellung (Netto-Preise)</div>`;
-      if (sumLabor > 0)  html += `<div class="rechnung-row sub"><span>🧪 Laborbedarf</span><span>${fmt(sumLabor)}</span></div>`;
+      if (hasLabor)      html += `<div class="rechnung-row sub"><span>🧪 Laborbedarf</span><span style="color:${sumLabor > 0 ? 'inherit' : 'var(--muted)'}">${sumLabor > 0 ? fmt(sumLabor) : 'Preise folgen'}</span></div>`;
       if (sumPraxis > 0) html += `<div class="rechnung-row sub"><span>🏥 Praxisbedarf</span><span>${fmt(sumPraxis)}</span></div>`;
       html += `<div class="rechnung-row total-netto"><span>Summe Netto</span><span>${fmt(sumNetto)}</span></div>
         <div class="rechnung-row mwst"><span>+ 19 % MwSt.</span><span>${fmt(mwst)}</span></div>
