@@ -462,7 +462,7 @@
     }
     .cr-name  { flex: 1; font-size: 13px; }
     .cr-menge { font-size: 12px; color: var(--muted); white-space: nowrap; }
-    .cr-by    { font-size: 11px; color: var(--green); white-space: nowrap; }
+    .cr-by    { font-size: 11px; color: var(--green); white-space: nowrap; flex: 0 0 42px; text-align: right; }
 
     /* ── ARCHIV ─────────────────────────────────────────────────────────── */
     .archiv-section-title {
@@ -1085,14 +1085,14 @@ async function loadBestelltView() {
         const preis     = parseFloat(item.preis_netto) || 0;
         const posTotal  = preis > 0 ? (item.menge * preis).toFixed(2).replace('.',',') + ' €' : '';
         html += `<div class="check-row${doneClass}">
-          <input type="checkbox" ${item.erhalten ? 'checked' : ''}
-            onchange="toggleErhalten('${item.id}', '${order.id}', this.checked)">
           <span class="cr-name">${esc(item.name)}
             ${item.artikelnummer ? `<span style="color:var(--muted);font-size:11px"> ${esc(item.artikelnummer)}</span>` : ''}
           </span>
           <span class="cr-menge">${item.menge}× ${esc(item.einheit)}</span>
           ${posTotal ? `<span style="font-size:11px;color:var(--blue-d);min-width:72px;text-align:right">${posTotal}</span>` : '<span style="min-width:72px"></span>'}
           <span class="cr-by">${byText}</span>
+          <input type="checkbox" ${item.erhalten ? 'checked' : ''}
+            onchange="toggleErhalten('${item.id}', '${order.id}', this.checked)">
         </div>`;
       });
     });
