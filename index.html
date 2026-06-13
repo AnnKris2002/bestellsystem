@@ -979,7 +979,17 @@ function collectPositions() {
 }
 
 // ─── DRUCKEN ──────────────────────────────────────────────────────────────────
-function printOrder() {
+async function imgToBase64(url) {
+  const resp = await fetch(url);
+  const blob = await resp.blob();
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function printOrder() {
   const positions = collectPositions();
   const allPos = [
     ...positions,
@@ -987,17 +997,21 @@ function printOrder() {
       artikel_id: null, kategorie: s.kategorie,
       gruppe: s.gruppe || 'Sonstiges', name: s.name,
       artikelnummer: s.artikelnummer || '', einheit: s.einheit || '',
-      preis_netto: parseFloat(s.preis_netto) || 0, menge: s.menge,
+      menge: s.menge,
     }))
   ];
 
   if (allPos.length === 0) { showToast('Keine Artikel ausgewählt.'); return; }
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('de-DE') + ', ' +
-    now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-  function buildPage(title, cats, showPreis) {
+  const [logoNordmed, stempel] = await Promise.all([
+    imgToBase64('LogoNordmedGmbH.png'),
+    imgToBase64('PraxisstempelSchlaefke.png'),
+  ]);
+
+  function buildPage(title, cats) {
     const filtered = allPos.filter(p => cats.includes(p.kategorie));
     if (filtered.length === 0) return '';
 
@@ -1005,42 +1019,48 @@ function printOrder() {
     let rows = '';
     gruppen.forEach(gruppe => {
       const items = filtered.filter(p => p.gruppe === gruppe);
-      rows += `<tr class="gruppe-row"><td colspan="${showPreis ? 5 : 4}">${gruppe}</td></tr>`;
+      rows += `<tr class="gruppe-row"><td colspan="4">${gruppe}</td></tr>`;
       items.forEach(p => {
         rows += `<tr>
           <td class="col-name">${p.name}</td>
-          <td class="col-nr">${p.artikelnummer}</td>
-          <td class="col-einheit">${p.einheit}</td>
-          ${showPreis ? `<td class="col-preis">${p.preis_netto > 0 ? p.preis_netto.toFixed(2).replace('.', ',') + ' €' : ''}</td>` : ''}
+          <td class="col-nr">${p.artikelnummer || ''}</td>
+          <td class="col-einheit">${p.einheit || ''}</td>
           <td class="col-menge">${p.menge}</td>
         </tr>`;
       });
     });
 
     return `<div class="page">
-      <div class="page-header">
-        <span>${dateStr}</span>
-        <span class="page-title">Nordmed Bestellsystem</span>
-        <span>${filtered.length} Artikel</span>
+      <div class="kopfzeile">
+        <div class="kopf-titel">${title}</div>
+        <img src="${logoNordmed}" class="kopf-logo" alt="Nordmed">
       </div>
-      <h2>${title}</h2>
       <table>
         <thead>
           <tr>
             <th class="col-name">Artikel</th>
             <th class="col-nr">Art.-Nr.</th>
             <th class="col-einheit">Einheit</th>
-            ${showPreis ? '<th class="col-preis">Preis</th>' : ''}
             <th class="col-menge">Menge</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
+      <div class="fusszeile">
+        <div class="fuss-datum">
+          <div class="fuss-label">Datum</div>
+          <div class="fuss-wert">${dateStr}</div>
+        </div>
+        <div class="fuss-stempel">
+          <div class="fuss-label">Praxisstempel</div>
+          <img src="${stempel}" class="stempel-img" alt="Praxisstempel">
+        </div>
+      </div>
     </div>`;
   }
 
-  const page1 = buildPage('Laborbedarf &amp; Praxisbedarf', ['labor', 'praxis'], true);
-  const page2 = buildPage('Sprechstundenbedarf', ['sprechstunde'], false);
+  const page1 = buildPage('Laborbedarf &amp; Praxisbedarf', ['labor', 'praxis']);
+  const page2 = buildPage('Sprechstundenbedarf', ['sprechstunde']);
 
   if (!page1 && !page2) { showToast('Keine Artikel ausgewählt.'); return; }
 
@@ -1051,33 +1071,49 @@ function printOrder() {
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
-      .page { padding: 15mm 12mm; page-break-after: always; }
+      .page { padding: 12mm 14mm 10mm 14mm; page-break-after: always; display: flex; flex-direction: column; min-height: 100vh; }
       .page:last-child { page-break-after: auto; }
-      .page-header { display: flex; justify-content: space-between; font-size: 10px;
-        color: #555; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 10px; }
-      .page-title { font-weight: bold; }
-      h2 { font-size: 14px; font-weight: bold; color: #1a237e; margin-bottom: 10px; }
-      table { width: 100%; border-collapse: collapse; }
+
+      /* Kopfzeile */
+      .kopfzeile { display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 2px solid #1a237e; padding-bottom: 8px; margin-bottom: 12px; }
+      .kopf-titel { font-size: 18px; font-weight: bold; color: #1a237e; }
+      .kopf-logo { height: 45px; object-fit: contain; }
+
+      /* Tabelle */
+      table { width: 100%; border-collapse: collapse; flex: 1; }
       th { background: #e8eaf6; font-size: 10px; text-transform: uppercase;
-        letter-spacing: .5px; padding: 5px 6px; text-align: left; border-bottom: 2px solid #9fa8da; }
+        letter-spacing: .5px; padding: 5px 6px; text-align: left;
+        border-bottom: 2px solid #9fa8da; }
       td { padding: 4px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
-      .gruppe-row td { background: #f5f5f5; font-size: 10px; font-weight: bold;
-        text-transform: uppercase; letter-spacing: .5px; color: #555;
-        padding: 5px 6px; border-top: 4px solid #fff; }
-      .col-name    { width: 45%; }
-      .col-nr      { width: 15%; font-size: 10px; color: #555; }
-      .col-einheit { width: 12%; font-size: 10px; color: #555; text-align: right; }
-      .col-preis   { width: 13%; text-align: right; font-size: 10px; color: #1565c0; }
-      .col-menge   { width: 10%; text-align: center; font-weight: bold; font-size: 12px; }
+      .gruppe-row td { background: #f0f0f0; font-size: 10px; font-weight: bold;
+        text-transform: uppercase; letter-spacing: .5px; color: #444;
+        padding: 5px 6px; }
+      .col-name    { width: 50%; }
+      .col-nr      { width: 18%; font-size: 10px; color: #555; }
+      .col-einheit { width: 14%; font-size: 10px; color: #555; text-align: right; }
+      .col-menge   { width: 18%; text-align: center; font-weight: bold; font-size: 12px; }
+
+      /* Fußzeile */
+      .fusszeile { display: flex; justify-content: space-between; align-items: flex-end;
+        margin-top: 16px; padding-top: 10px; border-top: 1px solid #ccc; gap: 20px; }
+      .fuss-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px;
+        color: #888; margin-bottom: 4px; }
+      .fuss-datum { min-width: 100px; }
+      .fuss-wert { font-size: 13px; font-weight: bold; }
+      .fuss-stempel { text-align: right; }
+      .stempel-img { height: 70px; object-fit: contain; }
+
       @media print {
         @page { margin: 0; size: A4 portrait; }
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .page { min-height: 100vh; }
       }
     </style>
   </head><body>${page1}${page2}</body></html>`);
   win.document.close();
   win.focus();
-  setTimeout(() => win.print(), 400);
+  setTimeout(() => win.print(), 600);
 }
 
 // ─── SPEICHERN ────────────────────────────────────────────────────────────────
