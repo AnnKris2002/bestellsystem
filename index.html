@@ -374,12 +374,14 @@
 
     .son-inp {
       width: 100%; box-sizing: border-box;
-      padding: 5px 6px; border: 1.5px solid var(--border);
+      padding: 5px 10px; border: 1.5px solid var(--border);
       border-radius: 7px; font-size: 11px; outline: none;
       background: #fff; color: var(--text);
     }
     .son-inp:focus { border-color: var(--blue); }
-    .son-inp.son-menge { text-align: center; }
+    .son-inp.son-einheit { text-align: right; }
+    .son-inp.son-preis   { text-align: right; }
+    .son-inp.son-menge   { text-align: center; }
 
     /* Pfeile aus allen Zahlenfeldern entfernen */
     input[type=number]::-webkit-inner-spin-button,
@@ -880,7 +882,7 @@ function renderCurrentCat() {
       <div><input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}"></div>
       <div class="son-nr-cell"><input class="son-inp son-nr" type="text" placeholder="Art.-Nr." id="son-nr-${cat}"></div>
       <div><input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}"></div>
-      <div class="son-preis-cell"><input class="son-inp" type="text" placeholder="Preis (€)"  id="son-preis-${cat}"></div>
+      <div class="son-preis-cell"><input class="son-inp son-preis" type="text" placeholder="Preis (€)" id="son-preis-${cat}"></div>
       <div><input class="son-inp son-menge"   type="number" placeholder="Menge" min="1"       id="son-menge-${cat}"></div>
     </div>
     <div class="sonstiges-btn-row">
