@@ -266,33 +266,41 @@
     }
 
     /* ── ARTIKEL ZEILE ─────────────────────────────────────────────────── */
-    /* Spalten: Farbpunkt | Artikelname | Art.-Nr. | Einheit | Preis | Menge */
+    /* Spalten: Dot | Artikelname | Art.-Nr. | Einheit | Preis | Menge */
     .artikel-row {
       display: grid;
-      grid-template-columns: 34px 1fr 120px 80px 80px 80px;
-      align-items: center;
-      padding: 0;
+      grid-template-columns: 30px 1fr 100px 62px 58px 78px;
+      align-items: stretch;
       border-bottom: 1px solid #EEF4FF;
       transition: background .1s;
     }
     .artikel-row:hover { background: #F8FBFF; }
 
     .artikel-row > * {
-      padding: 7px 10px;
+      padding: 8px 10px;
       border-right: 1px solid #EEF4FF;
+      display: flex; align-items: center;
+      min-width: 0;
     }
     .artikel-row > *:last-child { border-right: none; }
 
+    /* Dot-Zelle: zentriert, kein Padding */
+    .art-farbe-cell { justify-content: center; padding: 0 !important; }
     .art-farbe {
-      width: 10px; height: 10px;
-      border-radius: 50%; border: 1px solid rgba(0,0,0,.12);
-      justify-self: center; flex-shrink: 0;
+      width: 10px; height: 10px; flex-shrink: 0;
+      border-radius: 50%; border: 1px solid rgba(0,0,0,.18);
     }
 
-    .art-name    { font-size: 13px; }
+    /* Name: einzeilig, zu lange Namen mit … kürzen (Tooltip zeigt vollen Namen) */
+    .artikel-row > .art-name {
+      font-size: 13px;
+      display: block;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .art-nr      { font-size: 11px; color: var(--muted); }
-    .art-einheit { font-size: 11px; color: var(--muted); text-align: right; }
-    .art-preis   { font-size: 11px; color: var(--blue-d); text-align: right; font-weight: 600; }
+    .art-einheit { font-size: 11px; color: var(--muted); justify-content: flex-end; }
+    .art-preis   { font-size: 11px; color: var(--blue-d); justify-content: flex-end; font-weight: 600; }
+    .art-menge-cell { justify-content: center; }
 
     /* ── RECHNUNGSAUFSTELLUNG ──────────────────────────────────────── */
     .rechnung-box {
@@ -340,21 +348,27 @@
     .menge-input.filled { border-color: var(--blue); background: var(--blue-light); color: var(--blue-d); }
 
     /* ── SONSTIGES ────────────────────────────────────────────────────── */
-    .sonstiges-bar {
-      padding: 8px 10px; background: #F8FBFF;
-      border-top: 1px solid var(--border);
+    .sonstiges-bar { background: #F8FBFF; border-top: 1px solid var(--border); }
+
+    .sonstiges-inputs {
       display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px 4px;
     }
     .son-inp {
-      padding: 6px 9px; border: 1.5px solid var(--border);
-      border-radius: 7px; font-size: 13px; outline: none;
+      padding: 6px 8px; border: 1.5px solid var(--border);
+      border-radius: 7px; font-size: 12px; outline: none;
       background: #fff; color: var(--text); box-sizing: border-box;
     }
     .son-inp:focus { border-color: var(--blue); }
     .son-inp.son-name    { flex: 1; min-width: 0; }
-    .son-inp.son-nr      { width: 110px; flex-shrink: 0; }
-    .son-inp.son-einheit { width: 90px;  flex-shrink: 0; }
+    .son-inp.son-nr      { width: 100px; flex-shrink: 0; }
+    .son-inp.son-einheit { width: 80px;  flex-shrink: 0; }
     .son-inp.son-menge   { width: 72px;  flex-shrink: 0; text-align: center; }
+
+    .sonstiges-btn-row {
+      display: flex; justify-content: flex-end;
+      padding: 2px 10px 8px;
+    }
 
     /* ── BUTTONS ───────────────────────────────────────────────────────── */
     .btn {
@@ -801,18 +815,18 @@ function renderCurrentCat() {
       const qty    = savedQtys[art.id] || '';
       const filled = qty ? ' filled' : '';
       html += `<div class="artikel-row">
-        <div class="art-farbe" style="${farbenStyle(art.farbe)}"></div>
-        <div class="art-name">${esc(art.name)}</div>
+        <div class="art-farbe-cell"><div class="art-farbe" style="${farbenStyle(art.farbe)}"></div></div>
+        <div class="art-name" title="${esc(art.name)}">${esc(art.name)}</div>
         <div class="art-nr">${esc(art.artikelnummer)}</div>
         <div class="art-einheit">${esc(art.einheit)}</div>
         ${(parseFloat(art.preis_netto)||0) > 0 ? `<div class="art-preis">${(parseFloat(art.preis_netto)).toFixed(2).replace('.',',')} €</div>` : `<div class="art-preis"></div>`}
-        <input type="number" min="0" step="1" placeholder="0"
+        <div class="art-menge-cell"><input type="number" min="0" step="1" placeholder="0"
           class="menge-input${filled}" value="${esc(String(qty))}"
           data-id="${art.id}" data-kat="${art.kategorie}"
           data-gruppe="${esc(art.gruppe)}" data-name="${esc(art.name)}"
           data-nr="${esc(art.artikelnummer)}" data-einheit="${esc(art.einheit)}"
           data-preis="${parseFloat(art.preis_netto)||0}"
-          oninput="onQtyInput(this)">
+          oninput="onQtyInput(this)"></div>
       </div>`;
     });
   });
@@ -821,26 +835,31 @@ function renderCurrentCat() {
     html += `<div class="gruppe-header">Sonstiges</div>`;
     catSon.forEach(s => {
       html += `<div class="artikel-row">
-        <div class="art-farbe" style="background:#eee"></div>
+        <div class="art-farbe-cell"><div class="art-farbe" style="background:#ddd"></div></div>
         <div class="art-name">${esc(s.name)}</div>
         <div class="art-nr">${esc(s.artikelnummer || '')}</div>
         <div class="art-einheit">${esc(s.einheit)}</div>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div class="art-preis"></div>
+        <div class="art-menge-cell" style="gap:4px">
           <span class="menge-input filled" style="display:flex;align-items:center;justify-content:center">${s.menge}</span>
           <button onclick="deleteSonstiges('${s.id}')" title="Entfernen"
-            style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px">✕</button>
+            style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;flex-shrink:0">✕</button>
         </div>
       </div>`;
     });
   }
 
   html += `<div class="sonstiges-bar">
-    <input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}">
-    <input class="son-inp son-nr"      type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}">
-    <input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}">
-    <input class="son-inp son-menge"   type="number" placeholder="Menge" min="1"       id="son-menge-${cat}">
-    <button class="btn btn-outline" style="font-size:12px;padding:6px 11px;white-space:nowrap;flex-shrink:0"
-      onclick="addSonstiges('${cat}')">+ Hinzufügen</button>
+    <div class="sonstiges-inputs">
+      <input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}">
+      <input class="son-inp son-nr"      type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}">
+      <input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}">
+      <input class="son-inp son-menge"   type="number" placeholder="Menge"   min="1"     id="son-menge-${cat}">
+    </div>
+    <div class="sonstiges-btn-row">
+      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px"
+        onclick="addSonstiges('${cat}')">+ Hinzufügen</button>
+    </div>
   </div>`;
 
   html += `</div>`;
