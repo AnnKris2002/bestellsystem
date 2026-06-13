@@ -1201,7 +1201,7 @@ async function addSonstiges(kat) {
     kategorie: kat, gruppe, name, artikelnummer: nr,
     einheit, preis_netto, aktiv: true, sort_order: maxSort + 1,
   }).select().single();
-  if (artErr) { showToast('⚠️ Fehler beim Anlegen des Artikels.'); return; }
+  if (artErr) { showToast('⚠️ ' + (artErr.message || 'Fehler beim Anlegen des Artikels.')); return; }
 
   // Menge für diese Bestellung vormerken
   articles.push(newArt);
