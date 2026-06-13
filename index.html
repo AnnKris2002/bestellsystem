@@ -306,14 +306,14 @@
     /* Sprechstundenbedarf: Preisspalte ausblenden */
     .no-preis .artikel-row      { grid-template-columns: 30px 1fr 110px 76px 78px; }
     .no-preis .art-preis        { display: none; }
-    .no-preis .sonstiges-inputs { grid-template-columns: 30px 1fr 110px 76px 78px; }
-    .no-preis .son-preis-cell   { display: none; }
+    .no-preis .sonstiges-bar  { grid-template-columns: 30px 1fr 110px 76px 78px; }
+    .no-preis .son-preis-cell { display: none; }
 
     /* Praxisbedarf: Art.-Nr.-Spalte ausblenden */
     .no-artnr .artikel-row      { grid-template-columns: 30px 1fr 76px 72px 78px; }
     .no-artnr .art-nr           { display: none; }
-    .no-artnr .sonstiges-inputs { grid-template-columns: 30px 1fr 76px 72px 78px; }
-    .no-artnr .son-nr-cell      { display: none; }
+    .no-artnr .sonstiges-bar { grid-template-columns: 30px 1fr 76px 72px 78px; }
+    .no-artnr .son-nr-cell   { display: none; }
 
     /* ── RECHNUNGSAUFSTELLUNG ──────────────────────────────────────── */
     .rechnung-box {
@@ -361,17 +361,15 @@
     .menge-input.filled { border-color: var(--blue); background: var(--blue-light); color: var(--blue-d); }
 
     /* ── SONSTIGES ────────────────────────────────────────────────────── */
-    .sonstiges-bar { background: #F8FBFF; border-top: 1px solid var(--border); }
-
-    /* Sonstiges-Eingabezeile: identisches Grid wie .artikel-row */
-    .sonstiges-inputs {
+    .sonstiges-bar {
+      background: #F8FBFF; border-top: 1px solid var(--border);
       display: grid;
       grid-template-columns: 30px 1fr 110px 76px 72px 78px;
       align-items: center;
-      padding: 6px 0;
+      padding: 6px 0 8px;
     }
-    .sonstiges-inputs > * { padding: 0; }
-    .sonstiges-inputs > *:last-child { padding-right: 10px; }
+    .sonstiges-bar > * { padding: 0; }
+    .sonstiges-bar > *:last-child { padding-right: 10px; }
 
     .son-inp {
       width: 100%; box-sizing: border-box;
@@ -389,12 +387,7 @@
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; }
 
-    .sonstiges-btn-row {
-      display: flex; justify-content: flex-end;
-      padding: 4px 10px 8px 0;
-    }
-    .sonstiges-btn-row button { width: 140px; justify-content: center; }
-    .no-preis .sonstiges-btn-row button { width: 68px; }
+    .son-gruppe-wrap { display: flex; align-items: center; gap: 6px; grid-column: span 2; }
 
     /* ── BUTTONS ───────────────────────────────────────────────────────── */
     .btn {
@@ -826,8 +819,6 @@ function renderSonRowHtml(s, cat, filled) {
         data-sonid="${s.id}"
         oninput="onQtyInput(this)"
         onchange="updateSonstigesMenge('${s.id}', this)">
-      <button onclick="deleteSonstiges('${s.id}')" title="Entfernen"
-        style="border:none;background:none;color:#ccc;cursor:pointer;font-size:11px;padding:1px 2px;flex-shrink:0;line-height:1" onmouseover="this.style.color='var(--muted)'" onmouseout="this.style.color='#ccc'">✕</button>
     </div>
   </div>`;
 }
@@ -904,23 +895,20 @@ function renderCurrentCat() {
 
   const gruppenOptionen = alleGruppen.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
   html += `<div class="sonstiges-bar">
-    <div class="sonstiges-inputs">
-      <div></div>
-      <div><input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}"></div>
-      <div class="son-nr-cell"><input class="son-inp son-nr" type="text" placeholder="Art.-Nr." id="son-nr-${cat}"></div>
-      <div><input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}"></div>
-      <div class="son-preis-cell"><input class="son-inp son-preis" type="text" placeholder="Preis (€)" id="son-preis-${cat}"></div>
-      <div><input class="son-inp son-menge"   type="number" placeholder="Menge" min="1"       id="son-menge-${cat}"></div>
-    </div>
-    <div class="sonstiges-btn-row">
-      <span style="font-size:12px;color:var(--muted);margin-right:6px">Gruppe:</span>
-      <select id="son-gruppe-${cat}" style="font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;color:var(--text);background:#fff">
-        <option value="Sonstiges">Sonstiges</option>
-        ${gruppenOptionen}
-      </select>
-      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px;margin-left:8px"
-        onclick="addSonstiges('${cat}')">+ Hinzufügen</button>
-    </div>
+    <div></div>
+    <div><input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}"></div>
+    <div class="son-nr-cell"><input class="son-inp son-nr" type="text" placeholder="Art.-Nr." id="son-nr-${cat}"></div>
+    <div><input class="son-inp son-einheit" type="text" placeholder="Einheit" id="son-einheit-${cat}"></div>
+    <div class="son-preis-cell"><input class="son-inp son-preis" type="text" placeholder="Preis (€)" id="son-preis-${cat}"></div>
+    <div><input class="son-inp son-menge"   type="number" placeholder="Menge" min="1" id="son-menge-${cat}"></div>
+    <div></div>
+    <div style="text-align:right;font-size:12px;color:var(--blue);padding-right:8px;white-space:nowrap">Kategoriegruppe</div>
+    <div style="grid-column:span 2"><select id="son-gruppe-${cat}" class="son-inp" style="font-size:12px">
+      <option value="Sonstiges">Sonstiges</option>
+      ${gruppenOptionen}
+    </select></div>
+    <div style="grid-column:span 2;padding-right:10px"><button class="btn btn-outline" style="font-size:12px;padding:6px 10px;width:100%"
+      onclick="addSonstiges('${cat}')">+ Hinzufügen</button></div>
   </div>`;
 
   html += `</div>`;
@@ -1038,8 +1026,8 @@ async function addSonstiges(kat) {
   const mengeEl   = document.getElementById(`son-menge-${kat}`);
   const gruppeEl  = document.getElementById(`son-gruppe-${kat}`);
   const name    = nameEl.value.trim();
-  const nr      = nrEl.value.trim();
-  const einheit = einheitEl.value.trim() || 'Stück';
+  const nr      = nrEl?.value.trim() || '';
+  const einheit = einheitEl?.value.trim() || 'Stück';
   const preis_netto = parseFloat((preisEl?.value || '').replace(',', '.')) || 0;
   const menge   = parseInt(mengeEl.value) || 0;
   const gruppe  = gruppeEl?.value || 'Sonstiges';
@@ -1062,7 +1050,9 @@ async function addSonstiges(kat) {
   });
   if (error) { showToast('⚠️ Fehler.'); return; }
 
-  nameEl.value = ''; nrEl.value = ''; einheitEl.value = '';
+  nameEl.value = '';
+  if (nrEl) nrEl.value = '';
+  if (einheitEl) einheitEl.value = '';
   if (preisEl) preisEl.value = '';
   mengeEl.value = '';
   showToast(`✅ "${name}" hinzugefügt.`);
