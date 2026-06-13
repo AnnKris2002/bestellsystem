@@ -716,7 +716,16 @@ function switchView(view) {
   }
 }
 
+function flushCurrentCatToSavedQtys() {
+  document.querySelectorAll('.menge-input[data-id]').forEach(inp => {
+    const menge = parseInt(inp.value) || 0;
+    if (menge > 0) savedQtys[inp.dataset.id] = menge;
+    else delete savedQtys[inp.dataset.id];
+  });
+}
+
 function switchCat(cat) {
+  flushCurrentCatToSavedQtys();
   currentCat = cat;
   document.querySelectorAll('.cat-tab').forEach(t =>
     t.classList.toggle('active', t.dataset.cat === cat));
@@ -857,15 +866,16 @@ function updateActionsInfo() {
 
 // ─── POSITIONEN SAMMELN ───────────────────────────────────────────────────────
 function collectPositions() {
+  flushCurrentCatToSavedQtys();
   const pos = [];
-  document.querySelectorAll('.menge-input[data-id]').forEach(inp => {
-    const menge = parseInt(inp.value) || 0;
+  articles.forEach(art => {
+    const menge = savedQtys[art.id] || 0;
     if (menge <= 0) return;
     pos.push({
-      artikel_id: inp.dataset.id, kategorie: inp.dataset.kat,
-      gruppe: inp.dataset.gruppe, name: inp.dataset.name,
-      artikelnummer: inp.dataset.nr || '', einheit: inp.dataset.einheit || 'Stück',
-      preis_netto: parseFloat(inp.dataset.preis) || 0, menge,
+      artikel_id: art.id, kategorie: art.kategorie,
+      gruppe: art.gruppe, name: art.name,
+      artikelnummer: art.artikelnummer || '', einheit: art.einheit || 'Stück',
+      preis_netto: parseFloat(art.preis_netto) || 0, menge,
     });
   });
   return pos;
