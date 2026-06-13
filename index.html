@@ -595,7 +595,6 @@
   <div class="actions-bar" id="actions-bar">
     <span class="actions-info" id="actions-info"></span>
     <div class="actions-spacer"></div>
-    <button class="btn btn-outline" onclick="printOrder()">🖨 Drucken</button>
     <button class="btn btn-save"    onclick="saveOrder()">💾 Speichern</button>
     <button class="btn btn-blue"    onclick="submitOrder()">📬 Bestellen →</button>
   </div>
@@ -1170,8 +1169,9 @@ async function submitOrder() {
 
   if (error) { showToast('⚠️ Fehler beim Absenden.'); return; }
 
-  currentOrder = null; savedQtys = {}; savedSonstiges = [];
   showToast('✅ Bestellung abgesendet!');
+  await printOrder();
+  currentOrder = null; savedQtys = {}; savedSonstiges = [];
   await updateBestelltBadge();
   loadBestellungView();
 }
