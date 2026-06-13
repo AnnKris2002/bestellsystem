@@ -1,5 +1,5 @@
-const CACHE = 'bestellsystem-v1';
-const ASSETS = ['index.html', 'manifest.json', 'Logo_PGmitKranOhneNamen.png', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'bestellsystem-v3';
+const ASSETS = ['index.html', 'manifest.json', 'Logo_PGmitKranOhneNamen.png', 'IconNordmed.png', 'LogoNordmedNeu.png', 'PraxisstempelSchlaefke.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => {})));
