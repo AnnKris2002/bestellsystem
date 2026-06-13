@@ -266,23 +266,36 @@
     }
 
     /* ── ARTIKEL ZEILE ─────────────────────────────────────────────────── */
+    /* Spalten: Farbpunkt | Artikelname | Art.-Nr. | Einheit | Preis | Menge */
     .artikel-row {
-      display: flex; align-items: center;
-      padding: 6px 15px; gap: 10px;
-      border-bottom: 1px solid #F4F8FF;
+      display: grid;
+      grid-template-columns: 14px 1fr 110px 72px 72px 68px;
+      align-items: center;
+      padding: 0;
+      border-bottom: 1px solid #EEF4FF;
       transition: background .1s;
     }
     .artikel-row:hover { background: #F8FBFF; }
 
+    .artikel-row > * {
+      padding: 7px 10px;
+      border-right: 1px solid #EEF4FF;
+    }
+    .artikel-row > *:last-child { border-right: none; }
+
     .art-farbe {
       width: 10px; height: 10px;
       border-radius: 50%; border: 1px solid rgba(0,0,0,.12);
-      flex-shrink: 0;
+      justify-self: center; padding: 0;
+      margin: 0 auto; border-right: none;
     }
-    .art-name    { flex: 1; font-size: 13px; }
-    .art-nr      { font-size: 11px; color: var(--muted); min-width: 90px; }
-    .art-einheit { font-size: 11px; color: var(--muted); min-width: 70px; text-align: right; }
-    .art-preis   { font-size: 11px; color: var(--blue-d); min-width: 68px; text-align: right; font-weight: 600; }
+    /* Farbpunkt-Zelle bekommt eigene Behandlung */
+    .artikel-row > .art-farbe { padding: 0; border-right: 1px solid #EEF4FF; }
+
+    .art-name    { font-size: 13px; }
+    .art-nr      { font-size: 11px; color: var(--muted); }
+    .art-einheit { font-size: 11px; color: var(--muted); text-align: right; }
+    .art-preis   { font-size: 11px; color: var(--blue-d); text-align: right; font-weight: 600; }
 
     /* ── RECHNUNGSAUFSTELLUNG ──────────────────────────────────────── */
     .rechnung-box {
@@ -331,19 +344,26 @@
 
     /* ── SONSTIGES ────────────────────────────────────────────────────── */
     .sonstiges-bar {
-      padding: 10px 15px; background: #F8FBFF;
+      padding: 8px 10px; background: #F8FBFF;
       border-top: 1px solid var(--border);
-      display: flex; gap: 7px; flex-wrap: wrap; align-items: flex-end;
+      display: grid;
+      grid-template-columns: 14px 1fr 110px 72px 72px 68px auto;
+      align-items: center;
+      gap: 0;
     }
+    .sonstiges-bar > .son-spacer { border-right: 1px solid #EEF4FF; padding: 0 0 0 10px; }
     .son-inp {
       padding: 6px 9px; border: 1.5px solid var(--border);
       border-radius: 7px; font-size: 13px; outline: none;
       background: #fff; color: var(--text);
+      width: 100%; box-sizing: border-box;
     }
     .son-inp:focus { border-color: var(--blue); }
-    .son-name  { flex: 1; min-width: 140px; }
-    .son-nr    { width: 100px; }
-    .son-menge { width: 58px; text-align: center; }
+    .sonstiges-bar > .son-name-cell  { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
+    .sonstiges-bar > .son-nr-cell    { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
+    .sonstiges-bar > .son-menge-cell { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
+    .sonstiges-bar > .son-einheit-cell { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
+    .sonstiges-bar > .son-btn-cell   { padding: 4px 10px; }
 
     /* ── BUTTONS ───────────────────────────────────────────────────────── */
     .btn {
@@ -824,11 +844,14 @@ function renderCurrentCat() {
   }
 
   html += `<div class="sonstiges-bar">
-    <input class="son-inp son-name"  type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}">
-    <input class="son-inp son-nr"    type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}">
-    <input class="son-inp son-menge" type="number" placeholder="Menge" min="1"       id="son-menge-${cat}">
-    <button class="btn btn-outline" style="font-size:12px;padding:6px 11px"
-      onclick="addSonstiges('${cat}')">+ Hinzufügen</button>
+    <div class="son-spacer"></div>
+    <div class="son-name-cell"><input class="son-inp" type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}"></div>
+    <div class="son-nr-cell">  <input class="son-inp" type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}"></div>
+    <div class="son-einheit-cell"><input class="son-inp" type="text" placeholder="Einheit"            id="son-einheit-${cat}"></div>
+    <div class="son-menge-cell"><input class="son-inp" type="number" placeholder="Menge" min="1"      id="son-menge-${cat}" style="text-align:center"></div>
+    <div></div>
+    <div class="son-btn-cell"><button class="btn btn-outline" style="font-size:12px;padding:6px 11px;white-space:nowrap"
+      onclick="addSonstiges('${cat}')">+ Hinzufügen</button></div>
   </div>`;
 
   html += `</div>`;
@@ -939,12 +962,14 @@ async function submitOrder() {
 
 // ─── SONSTIGES ────────────────────────────────────────────────────────────────
 async function addSonstiges(kat) {
-  const nameEl  = document.getElementById(`son-name-${kat}`);
-  const nrEl    = document.getElementById(`son-nr-${kat}`);
-  const mengeEl = document.getElementById(`son-menge-${kat}`);
-  const name  = nameEl.value.trim();
-  const nr    = nrEl.value.trim();
-  const menge = parseInt(mengeEl.value) || 0;
+  const nameEl    = document.getElementById(`son-name-${kat}`);
+  const nrEl      = document.getElementById(`son-nr-${kat}`);
+  const einheitEl = document.getElementById(`son-einheit-${kat}`);
+  const mengeEl   = document.getElementById(`son-menge-${kat}`);
+  const name    = nameEl.value.trim();
+  const nr      = nrEl.value.trim();
+  const einheit = einheitEl.value.trim() || 'Stück';
+  const menge   = parseInt(mengeEl.value) || 0;
   if (!name)    { showToast('Bitte Artikelname eingeben.'); return; }
   if (menge < 1){ showToast('Bitte Menge eingeben.'); return; }
 
@@ -954,11 +979,11 @@ async function addSonstiges(kat) {
   const { error } = await db.from('bestell_positionen').insert({
     auftrag_id: currentOrder.id, artikel_id: null,
     kategorie: kat, gruppe: 'Sonstiges', name, artikelnummer: nr,
-    einheit: 'Stück', menge,
+    einheit, menge,
   });
   if (error) { showToast('⚠️ Fehler.'); return; }
 
-  nameEl.value = ''; nrEl.value = ''; mengeEl.value = '';
+  nameEl.value = ''; nrEl.value = ''; einheitEl.value = ''; mengeEl.value = '';
   showToast(`✅ "${name}" hinzugefügt.`);
   loadBestellungView();
 }
