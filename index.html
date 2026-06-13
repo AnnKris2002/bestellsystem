@@ -595,7 +595,7 @@
   <div class="actions-bar" id="actions-bar">
     <span class="actions-info" id="actions-info"></span>
     <div class="actions-spacer"></div>
-    <button class="btn btn-outline" onclick="window.print()">🖨 Drucken</button>
+    <button class="btn btn-outline" onclick="printOrder()">🖨 Drucken</button>
     <button class="btn btn-save"    onclick="saveOrder()">💾 Speichern</button>
     <button class="btn btn-blue"    onclick="submitOrder()">📬 Bestellen →</button>
   </div>
@@ -978,6 +978,108 @@ function collectPositions() {
   return pos;
 }
 
+// ─── DRUCKEN ──────────────────────────────────────────────────────────────────
+function printOrder() {
+  const positions = collectPositions();
+  const allPos = [
+    ...positions,
+    ...savedSonstiges.filter(s => (s.menge || 0) > 0).map(s => ({
+      artikel_id: null, kategorie: s.kategorie,
+      gruppe: s.gruppe || 'Sonstiges', name: s.name,
+      artikelnummer: s.artikelnummer || '', einheit: s.einheit || '',
+      preis_netto: parseFloat(s.preis_netto) || 0, menge: s.menge,
+    }))
+  ];
+
+  if (allPos.length === 0) { showToast('Keine Artikel ausgewählt.'); return; }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('de-DE') + ', ' +
+    now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+  function buildPage(title, cats, showPreis) {
+    const filtered = allPos.filter(p => cats.includes(p.kategorie));
+    if (filtered.length === 0) return '';
+
+    const gruppen = [...new Set(filtered.map(p => p.gruppe))];
+    let rows = '';
+    gruppen.forEach(gruppe => {
+      const items = filtered.filter(p => p.gruppe === gruppe);
+      rows += `<tr class="gruppe-row"><td colspan="${showPreis ? 5 : 4}">${gruppe}</td></tr>`;
+      items.forEach(p => {
+        rows += `<tr>
+          <td class="col-name">${p.name}</td>
+          <td class="col-nr">${p.artikelnummer}</td>
+          <td class="col-einheit">${p.einheit}</td>
+          ${showPreis ? `<td class="col-preis">${p.preis_netto > 0 ? p.preis_netto.toFixed(2).replace('.', ',') + ' €' : ''}</td>` : ''}
+          <td class="col-menge">${p.menge}</td>
+        </tr>`;
+      });
+    });
+
+    return `<div class="page">
+      <div class="page-header">
+        <span>${dateStr}</span>
+        <span class="page-title">Nordmed Bestellsystem</span>
+        <span>${filtered.length} Artikel</span>
+      </div>
+      <h2>${title}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th class="col-name">Artikel</th>
+            <th class="col-nr">Art.-Nr.</th>
+            <th class="col-einheit">Einheit</th>
+            ${showPreis ? '<th class="col-preis">Preis</th>' : ''}
+            <th class="col-menge">Menge</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  const page1 = buildPage('Laborbedarf &amp; Praxisbedarf', ['labor', 'praxis'], true);
+  const page2 = buildPage('Sprechstundenbedarf', ['sprechstunde'], false);
+
+  if (!page1 && !page2) { showToast('Keine Artikel ausgewählt.'); return; }
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html lang="de"><head>
+    <meta charset="UTF-8">
+    <title>Bestellung – Nordmed</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
+      .page { padding: 15mm 12mm; page-break-after: always; }
+      .page:last-child { page-break-after: auto; }
+      .page-header { display: flex; justify-content: space-between; font-size: 10px;
+        color: #555; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 10px; }
+      .page-title { font-weight: bold; }
+      h2 { font-size: 14px; font-weight: bold; color: #1a237e; margin-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #e8eaf6; font-size: 10px; text-transform: uppercase;
+        letter-spacing: .5px; padding: 5px 6px; text-align: left; border-bottom: 2px solid #9fa8da; }
+      td { padding: 4px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+      .gruppe-row td { background: #f5f5f5; font-size: 10px; font-weight: bold;
+        text-transform: uppercase; letter-spacing: .5px; color: #555;
+        padding: 5px 6px; border-top: 4px solid #fff; }
+      .col-name    { width: 45%; }
+      .col-nr      { width: 15%; font-size: 10px; color: #555; }
+      .col-einheit { width: 12%; font-size: 10px; color: #555; text-align: right; }
+      .col-preis   { width: 13%; text-align: right; font-size: 10px; color: #1565c0; }
+      .col-menge   { width: 10%; text-align: center; font-weight: bold; font-size: 12px; }
+      @media print {
+        @page { margin: 0; size: A4 portrait; }
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      }
+    </style>
+  </head><body>${page1}${page2}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
+}
+
 // ─── SPEICHERN ────────────────────────────────────────────────────────────────
 async function saveOrder(silent = false) {
   const positions = collectPositions();
@@ -1051,29 +1153,26 @@ async function addSonstiges(kat) {
   if (!name)    { showToast('Bitte Artikelname eingeben.'); return; }
   if (menge < 1){ showToast('Bitte Menge eingeben.'); return; }
 
-  await saveOrder(true);
-  if (!currentOrder) {
-    const { data, error } = await db.from('bestell_auftraege').insert({
-      status: 'aktuell', erstellt_von: currentUser.anzeigename,
-    }).select().single();
-    if (error) { showToast('⚠️ Fehler beim Anlegen des Auftrags.'); return; }
-    currentOrder = data;
-  }
-
-  const { error } = await db.from('bestell_positionen').insert({
-    auftrag_id: currentOrder.id, artikel_id: null,
+  // Artikel dauerhaft in bestell_artikel anlegen
+  const maxSort = Math.max(0, ...articles.filter(a => a.kategorie === kat).map(a => a.sort_order || 0));
+  const { data: newArt, error: artErr } = await db.from('bestell_artikel').insert({
     kategorie: kat, gruppe, name, artikelnummer: nr,
-    einheit, preis_netto, menge,
-  });
-  if (error) { showToast('⚠️ Fehler.'); return; }
+    einheit, preis_netto, aktiv: true, sort_order: maxSort + 1,
+  }).select().single();
+  if (artErr) { showToast('⚠️ Fehler beim Anlegen des Artikels.'); return; }
+
+  // Menge für diese Bestellung vormerken
+  articles.push(newArt);
+  savedQtys[newArt.id] = menge;
 
   nameEl.value = '';
   if (nrEl) nrEl.value = '';
   if (einheitEl) einheitEl.value = '';
   if (preisEl) preisEl.value = '';
   mengeEl.value = '';
-  showToast(`✅ "${name}" hinzugefügt.`);
-  loadBestellungView();
+  showToast(`✅ "${name}" dauerhaft hinzugefügt.`);
+  renderCurrentCat();
+  updateActionsInfo();
 }
 
 async function updateSonstigesMenge(posId, inp) {
