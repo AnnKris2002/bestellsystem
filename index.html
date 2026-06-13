@@ -269,7 +269,7 @@
     /* Spalten: Farbpunkt | Artikelname | Art.-Nr. | Einheit | Preis | Menge */
     .artikel-row {
       display: grid;
-      grid-template-columns: 14px 1fr 110px 72px 72px 68px;
+      grid-template-columns: 34px 1fr 120px 80px 80px 80px;
       align-items: center;
       padding: 0;
       border-bottom: 1px solid #EEF4FF;
@@ -286,11 +286,8 @@
     .art-farbe {
       width: 10px; height: 10px;
       border-radius: 50%; border: 1px solid rgba(0,0,0,.12);
-      justify-self: center; padding: 0;
-      margin: 0 auto; border-right: none;
+      justify-self: center; flex-shrink: 0;
     }
-    /* Farbpunkt-Zelle bekommt eigene Behandlung */
-    .artikel-row > .art-farbe { padding: 0; border-right: 1px solid #EEF4FF; }
 
     .art-name    { font-size: 13px; }
     .art-nr      { font-size: 11px; color: var(--muted); }
@@ -346,24 +343,18 @@
     .sonstiges-bar {
       padding: 8px 10px; background: #F8FBFF;
       border-top: 1px solid var(--border);
-      display: grid;
-      grid-template-columns: 14px 1fr 110px 72px 72px 68px auto;
-      align-items: center;
-      gap: 0;
+      display: flex; align-items: center; gap: 8px;
     }
-    .sonstiges-bar > .son-spacer { border-right: 1px solid #EEF4FF; padding: 0 0 0 10px; }
     .son-inp {
       padding: 6px 9px; border: 1.5px solid var(--border);
       border-radius: 7px; font-size: 13px; outline: none;
-      background: #fff; color: var(--text);
-      width: 100%; box-sizing: border-box;
+      background: #fff; color: var(--text); box-sizing: border-box;
     }
     .son-inp:focus { border-color: var(--blue); }
-    .sonstiges-bar > .son-name-cell  { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
-    .sonstiges-bar > .son-nr-cell    { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
-    .sonstiges-bar > .son-menge-cell { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
-    .sonstiges-bar > .son-einheit-cell { padding: 4px 10px; border-right: 1px solid #EEF4FF; }
-    .sonstiges-bar > .son-btn-cell   { padding: 4px 10px; }
+    .son-inp.son-name    { flex: 1; min-width: 0; }
+    .son-inp.son-nr      { width: 110px; flex-shrink: 0; }
+    .son-inp.son-einheit { width: 90px;  flex-shrink: 0; }
+    .son-inp.son-menge   { width: 72px;  flex-shrink: 0; text-align: center; }
 
     /* ── BUTTONS ───────────────────────────────────────────────────────── */
     .btn {
@@ -844,14 +835,12 @@ function renderCurrentCat() {
   }
 
   html += `<div class="sonstiges-bar">
-    <div class="son-spacer"></div>
-    <div class="son-name-cell"><input class="son-inp" type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}"></div>
-    <div class="son-nr-cell">  <input class="son-inp" type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}"></div>
-    <div class="son-einheit-cell"><input class="son-inp" type="text" placeholder="Einheit"            id="son-einheit-${cat}"></div>
-    <div class="son-menge-cell"><input class="son-inp" type="number" placeholder="Menge" min="1"      id="son-menge-${cat}" style="text-align:center"></div>
-    <div></div>
-    <div class="son-btn-cell"><button class="btn btn-outline" style="font-size:12px;padding:6px 11px;white-space:nowrap"
-      onclick="addSonstiges('${cat}')">+ Hinzufügen</button></div>
+    <input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}">
+    <input class="son-inp son-nr"      type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}">
+    <input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}">
+    <input class="son-inp son-menge"   type="number" placeholder="Menge" min="1"       id="son-menge-${cat}">
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 11px;white-space:nowrap;flex-shrink:0"
+      onclick="addSonstiges('${cat}')">+ Hinzufügen</button>
   </div>`;
 
   html += `</div>`;
