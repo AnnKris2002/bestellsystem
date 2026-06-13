@@ -810,6 +810,28 @@ async function loadBestellungView() {
   renderCurrentCat();
 }
 
+function renderSonRowHtml(s, cat, filled) {
+  const preis = (parseFloat(s.preis_netto)||0) > 0
+    ? `<div class="art-preis">${parseFloat(s.preis_netto).toFixed(2).replace('.',',')} €</div>`
+    : cat !== 'sprechstunde' ? `<div class="art-preis"></div>` : `<div class="art-preis"></div>`;
+  return `<div class="artikel-row">
+    <div class="art-farbe-cell"><div class="art-farbe" style="background:#ddd"></div></div>
+    <div class="art-name" title="${esc(s.name)}">${esc(s.name)}</div>
+    <div class="art-nr">${esc(s.artikelnummer || '')}</div>
+    <div class="art-einheit">${esc(s.einheit)}</div>
+    ${preis}
+    <div class="art-menge-cell" style="gap:3px">
+      <input type="number" min="0" step="1" placeholder="0"
+        class="menge-input${filled}" value="${s.menge || ''}"
+        data-sonid="${s.id}"
+        oninput="onQtyInput(this)"
+        onchange="updateSonstigesMenge('${s.id}', this)">
+      <button onclick="deleteSonstiges('${s.id}')" title="Entfernen"
+        style="border:none;background:none;color:#ccc;cursor:pointer;font-size:11px;padding:1px 2px;flex-shrink:0;line-height:1" onmouseover="this.style.color='var(--muted)'" onmouseout="this.style.color='#ccc'">✕</button>
+    </div>
+  </div>`;
+}
+
 function renderCurrentCat() {
   const view = document.getElementById('view-bestellung');
   const cat  = currentCat;
@@ -835,9 +857,15 @@ function renderCurrentCat() {
     html += `<div style="padding:20px 15px;color:var(--muted);font-size:13px">Noch keine Artikel — bitte markierten Bestellschein einreichen.</div>`;
   }
 
-  gruppen.forEach(gruppe => {
+  // Merge sonstiges into their matching gruppe; rest goes to "Sonstiges" section
+  const sonGruppen   = [...new Set(catSon.filter(s => s.gruppe !== 'Sonstiges').map(s => s.gruppe))];
+  const alleGruppen  = [...new Set([...gruppen, ...sonGruppen])];
+
+  alleGruppen.forEach(gruppe => {
+    const gruppeArts = catArts.filter(a => a.gruppe === gruppe);
+    const gruppeSon  = catSon.filter(s => s.gruppe === gruppe);
     html += `<div class="gruppe-header">${esc(gruppe)}</div>`;
-    catArts.filter(a => a.gruppe === gruppe).forEach(art => {
+    gruppeArts.forEach(art => {
       const qty    = savedQtys[art.id] || '';
       const filled = qty ? ' filled' : '';
       html += `<div class="artikel-row">
@@ -859,26 +887,22 @@ function renderCurrentCat() {
           oninput="onQtyInput(this)"></div>
       </div>`;
     });
+    gruppeSon.forEach(s => {
+      const filled = s.menge > 0 ? ' filled' : '';
+      html += renderSonRowHtml(s, cat, filled);
+    });
   });
 
-  if (catSon.length > 0) {
+  const remainingSon = catSon.filter(s => s.gruppe === 'Sonstiges');
+  if (remainingSon.length > 0) {
     html += `<div class="gruppe-header">Sonstiges</div>`;
-    catSon.forEach(s => {
-      html += `<div class="artikel-row">
-        <div class="art-farbe-cell"><div class="art-farbe" style="background:#ddd"></div></div>
-        <div class="art-name">${esc(s.name)}</div>
-        <div class="art-nr">${esc(s.artikelnummer || '')}</div>
-        <div class="art-einheit">${esc(s.einheit)}</div>
-        <div class="art-preis">${(parseFloat(s.preis_netto)||0) > 0 ? parseFloat(s.preis_netto).toFixed(2).replace('.',',') + ' €' : ''}</div>
-        <div class="art-menge-cell" style="gap:4px">
-          <span class="menge-input filled" style="display:flex;align-items:center;justify-content:center">${s.menge}</span>
-          <button onclick="deleteSonstiges('${s.id}')" title="Entfernen"
-            style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;flex-shrink:0">✕</button>
-        </div>
-      </div>`;
+    remainingSon.forEach(s => {
+      const filled = s.menge > 0 ? ' filled' : '';
+      html += renderSonRowHtml(s, cat, filled);
     });
   }
 
+  const gruppenOptionen = alleGruppen.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
   html += `<div class="sonstiges-bar">
     <div class="sonstiges-inputs">
       <div></div>
@@ -889,7 +913,12 @@ function renderCurrentCat() {
       <div><input class="son-inp son-menge"   type="number" placeholder="Menge" min="1"       id="son-menge-${cat}"></div>
     </div>
     <div class="sonstiges-btn-row">
-      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px"
+      <span style="font-size:12px;color:var(--muted);margin-right:6px">Gruppe:</span>
+      <select id="son-gruppe-${cat}" style="font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;color:var(--text);background:#fff">
+        <option value="Sonstiges">Sonstiges</option>
+        ${gruppenOptionen}
+      </select>
+      <button class="btn btn-outline" style="font-size:12px;padding:6px 14px;margin-left:8px"
         onclick="addSonstiges('${cat}')">+ Hinzufügen</button>
     </div>
   </div>`;
@@ -921,8 +950,8 @@ function updateActionsInfo() {
   document.querySelectorAll('.menge-input[data-id]').forEach(inp => {
     if ((parseInt(inp.value) || 0) > 0) count++;
   });
-  // Zähle auch gespeicherte Sonstiges aller Kategorien
-  count += savedSonstiges.length;
+  // Zähle auch Sonstiges mit Menge > 0
+  count += savedSonstiges.filter(s => (s.menge || 0) > 0).length;
   const el = document.getElementById('actions-info');
   if (el) el.textContent = count > 0 ? `${count} Artikel ausgewählt` : '';
 }
@@ -1007,11 +1036,13 @@ async function addSonstiges(kat) {
   const einheitEl = document.getElementById(`son-einheit-${kat}`);
   const preisEl   = document.getElementById(`son-preis-${kat}`);
   const mengeEl   = document.getElementById(`son-menge-${kat}`);
+  const gruppeEl  = document.getElementById(`son-gruppe-${kat}`);
   const name    = nameEl.value.trim();
   const nr      = nrEl.value.trim();
   const einheit = einheitEl.value.trim() || 'Stück';
   const preis_netto = parseFloat((preisEl?.value || '').replace(',', '.')) || 0;
   const menge   = parseInt(mengeEl.value) || 0;
+  const gruppe  = gruppeEl?.value || 'Sonstiges';
   if (!name)    { showToast('Bitte Artikelname eingeben.'); return; }
   if (menge < 1){ showToast('Bitte Menge eingeben.'); return; }
 
@@ -1026,7 +1057,7 @@ async function addSonstiges(kat) {
 
   const { error } = await db.from('bestell_positionen').insert({
     auftrag_id: currentOrder.id, artikel_id: null,
-    kategorie: kat, gruppe: 'Sonstiges', name, artikelnummer: nr,
+    kategorie: kat, gruppe, name, artikelnummer: nr,
     einheit, preis_netto, menge,
   });
   if (error) { showToast('⚠️ Fehler.'); return; }
@@ -1036,6 +1067,13 @@ async function addSonstiges(kat) {
   mengeEl.value = '';
   showToast(`✅ "${name}" hinzugefügt.`);
   loadBestellungView();
+}
+
+async function updateSonstigesMenge(posId, inp) {
+  const menge = parseInt(inp.value) || 0;
+  const s = savedSonstiges.find(x => x.id === posId);
+  if (s) s.menge = menge;
+  await db.from('bestell_positionen').update({ menge }).eq('id', posId);
 }
 
 async function deleteSonstiges(posId) {
