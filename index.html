@@ -269,7 +269,7 @@
     /* Spalten: Dot | Artikelname | Art.-Nr. | Einheit | Preis | Menge */
     .artikel-row {
       display: grid;
-      grid-template-columns: 30px 1fr 100px 62px 58px 78px;
+      grid-template-columns: 30px 1fr 110px 76px 72px 78px;
       align-items: stretch;
       border-bottom: 1px solid #EEF4FF;
       transition: background .1s;
@@ -304,10 +304,16 @@
     .art-menge-cell { justify-content: center; }
 
     /* Sprechstundenbedarf: Preisspalte ausblenden */
-    .no-preis .artikel-row      { grid-template-columns: 30px 1fr 100px 62px 78px; }
+    .no-preis .artikel-row      { grid-template-columns: 30px 1fr 110px 76px 78px; }
     .no-preis .art-preis        { display: none; }
-    .no-preis .sonstiges-inputs { grid-template-columns: 30px 1fr 100px 62px 78px; }
+    .no-preis .sonstiges-inputs { grid-template-columns: 30px 1fr 110px 76px 78px; }
     .no-preis .son-preis-cell   { display: none; }
+
+    /* Praxisbedarf: Art.-Nr.-Spalte ausblenden */
+    .no-artnr .artikel-row      { grid-template-columns: 30px 1fr 76px 72px 78px; }
+    .no-artnr .art-nr           { display: none; }
+    .no-artnr .sonstiges-inputs { grid-template-columns: 30px 1fr 76px 72px 78px; }
+    .no-artnr .son-nr-cell      { display: none; }
 
     /* ── RECHNUNGSAUFSTELLUNG ──────────────────────────────────────── */
     .rechnung-box {
@@ -360,7 +366,7 @@
     /* Sonstiges-Eingabezeile: identisches Grid wie .artikel-row */
     .sonstiges-inputs {
       display: grid;
-      grid-template-columns: 30px 1fr 100px 62px 58px 78px;
+      grid-template-columns: 30px 1fr 110px 76px 72px 78px;
       align-items: center;
       padding: 6px 0;
     }
@@ -814,7 +820,7 @@ function renderCurrentCat() {
     html += `<div class="info-banner">📝 <span><strong>Bestellung in Bearbeitung</strong> — begonnen ${fmtDate(currentOrder.erstellt_am)} von ${esc(currentOrder.erstellt_von)}</span></div>`;
   }
 
-  html += `<div class="card${cat === 'sprechstunde' ? ' no-preis' : ''}">
+  html += `<div class="card${cat === 'sprechstunde' ? ' no-preis' : ''}${cat === 'praxis' ? ' no-artnr' : ''}">
     <div class="card-header">
       <h2>${CATLABELS[cat]}</h2>
       <span style="font-size:12px;color:var(--muted)">${catArts.length} Artikel</span>
@@ -872,7 +878,7 @@ function renderCurrentCat() {
     <div class="sonstiges-inputs">
       <div></div>
       <div><input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}"></div>
-      <div><input class="son-inp son-nr"      type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}"></div>
+      <div class="son-nr-cell"><input class="son-inp son-nr" type="text" placeholder="Art.-Nr." id="son-nr-${cat}"></div>
       <div><input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}"></div>
       <div class="son-preis-cell"><input class="son-inp" type="text" placeholder="Preis (€)"  id="son-preis-${cat}"></div>
       <div><input class="son-inp son-menge"   type="number" placeholder="Menge" min="1"       id="son-menge-${cat}"></div>
