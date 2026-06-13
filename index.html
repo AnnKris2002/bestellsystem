@@ -1053,7 +1053,7 @@ async function printOrder() {
         </div>
         <div class="fuss-stempel">
           <div class="fuss-label">Praxisstempel</div>
-          <img src="${stempel}" class="stempel-img" alt="Praxisstempel">
+          <img src="${stempel}" class="stempel-img" alt="Praxisstempel" onerror="this.style.display='none'">
         </div>
       </div>
     </div>`;
@@ -1071,7 +1071,7 @@ async function printOrder() {
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
-      .page { padding: 12mm 14mm 10mm 14mm; page-break-after: always; display: flex; flex-direction: column; min-height: 100vh; }
+      .page { padding: 12mm 14mm 10mm 14mm; page-break-after: always; }
       .page:last-child { page-break-after: auto; }
 
       /* Kopfzeile */
@@ -1081,7 +1081,7 @@ async function printOrder() {
       .kopf-logo { height: 45px; object-fit: contain; }
 
       /* Tabelle */
-      table { width: 100%; border-collapse: collapse; flex: 1; }
+      table { width: 100%; border-collapse: collapse; }
       th { background: #e8eaf6; font-size: 10px; text-transform: uppercase;
         letter-spacing: .5px; padding: 5px 6px; text-align: left;
         border-bottom: 2px solid #9fa8da; }
@@ -1096,7 +1096,7 @@ async function printOrder() {
 
       /* Fußzeile */
       .fusszeile { display: flex; justify-content: space-between; align-items: flex-end;
-        margin-top: 16px; padding-top: 10px; border-top: 1px solid #ccc; gap: 20px; }
+        margin-top: 20px; padding-top: 12px; border-top: 2px solid #1a237e; gap: 20px; }
       .fuss-label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px;
         color: #888; margin-bottom: 4px; }
       .fuss-datum { min-width: 100px; }
@@ -1107,13 +1107,15 @@ async function printOrder() {
       @media print {
         @page { margin: 0; size: A4 portrait; }
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .page { min-height: 100vh; }
       }
     </style>
   </head><body>${page1}${page2}</body></html>`);
   win.document.close();
   win.focus();
-  setTimeout(() => win.print(), 600);
+  setTimeout(() => {
+    win.print();
+    win.addEventListener('afterprint', () => win.close());
+  }, 600);
 }
 
 // ─── SPEICHERN ────────────────────────────────────────────────────────────────
