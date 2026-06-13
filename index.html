@@ -300,7 +300,14 @@
     .art-nr      { font-size: 11px; color: var(--muted); }
     .art-einheit { font-size: 11px; color: var(--muted); justify-content: flex-end; }
     .art-preis   { font-size: 11px; color: var(--blue-d); justify-content: flex-end; font-weight: 600; }
+    .art-preis.placeholder { color: #ccc; font-weight: 400; }
     .art-menge-cell { justify-content: center; }
+
+    /* Sprechstundenbedarf: Preisspalte ausblenden */
+    .no-preis .artikel-row      { grid-template-columns: 30px 1fr 100px 62px 78px; }
+    .no-preis .art-preis        { display: none; }
+    .no-preis .sonstiges-inputs { grid-template-columns: 30px 1fr 100px 62px 78px; }
+    .no-preis .son-preis-cell   { display: none; }
 
     /* ── RECHNUNGSAUFSTELLUNG ──────────────────────────────────────── */
     .rechnung-box {
@@ -350,21 +357,23 @@
     /* ── SONSTIGES ────────────────────────────────────────────────────── */
     .sonstiges-bar { background: #F8FBFF; border-top: 1px solid var(--border); }
 
+    /* Sonstiges-Eingabezeile: identisches Grid wie .artikel-row */
     .sonstiges-inputs {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px 4px;
+      display: grid;
+      grid-template-columns: 30px 1fr 100px 62px 58px 78px;
+      align-items: center;
+      padding: 6px 0;
     }
+    .sonstiges-inputs > * { padding: 0; }
+
     .son-inp {
-      padding: 6px 8px; border: 1.5px solid var(--border);
-      border-radius: 7px; font-size: 12px; outline: none;
-      background: #fff; color: var(--text); box-sizing: border-box;
+      width: 100%; box-sizing: border-box;
+      padding: 5px 6px; border: 1.5px solid var(--border);
+      border-radius: 7px; font-size: 11px; outline: none;
+      background: #fff; color: var(--text);
     }
     .son-inp:focus { border-color: var(--blue); }
-    .son-inp.son-name    { flex: 1; min-width: 0; }
-    .son-inp.son-nr      { width: 100px; flex-shrink: 0; }
-    .son-inp.son-einheit { width: 80px;  flex-shrink: 0; }
-    .son-inp.son-menge   { width: 72px;  flex-shrink: 0; text-align: center; }
-    .son-spacer          { width: 30px;  flex-shrink: 0; }
+    .son-inp.son-menge { text-align: center; }
 
     /* Pfeile aus allen Zahlenfeldern entfernen */
     input[type=number]::-webkit-inner-spin-button,
@@ -805,7 +814,7 @@ function renderCurrentCat() {
     html += `<div class="info-banner">📝 <span><strong>Bestellung in Bearbeitung</strong> — begonnen ${fmtDate(currentOrder.erstellt_am)} von ${esc(currentOrder.erstellt_von)}</span></div>`;
   }
 
-  html += `<div class="card">
+  html += `<div class="card${cat === 'sprechstunde' ? ' no-preis' : ''}">
     <div class="card-header">
       <h2>${CATLABELS[cat]}</h2>
       <span style="font-size:12px;color:var(--muted)">${catArts.length} Artikel</span>
@@ -825,7 +834,11 @@ function renderCurrentCat() {
         <div class="art-name" title="${esc(art.name)}">${esc(art.name)}</div>
         <div class="art-nr">${esc(art.artikelnummer)}</div>
         <div class="art-einheit">${esc(art.einheit)}</div>
-        ${(parseFloat(art.preis_netto)||0) > 0 ? `<div class="art-preis">${(parseFloat(art.preis_netto)).toFixed(2).replace('.',',')} €</div>` : `<div class="art-preis"></div>`}
+        ${(parseFloat(art.preis_netto)||0) > 0
+          ? `<div class="art-preis">${parseFloat(art.preis_netto).toFixed(2).replace('.',',')} €</div>`
+          : cat !== 'sprechstunde'
+            ? `<div class="art-preis placeholder">0,00 €</div>`
+            : `<div class="art-preis"></div>`}
         <div class="art-menge-cell"><input type="number" min="0" step="1" placeholder="0"
           class="menge-input${filled}" value="${esc(String(qty))}"
           data-id="${art.id}" data-kat="${art.kategorie}"
@@ -845,7 +858,7 @@ function renderCurrentCat() {
         <div class="art-name">${esc(s.name)}</div>
         <div class="art-nr">${esc(s.artikelnummer || '')}</div>
         <div class="art-einheit">${esc(s.einheit)}</div>
-        <div class="art-preis"></div>
+        <div class="art-preis">${(parseFloat(s.preis_netto)||0) > 0 ? parseFloat(s.preis_netto).toFixed(2).replace('.',',') + ' €' : ''}</div>
         <div class="art-menge-cell" style="gap:4px">
           <span class="menge-input filled" style="display:flex;align-items:center;justify-content:center">${s.menge}</span>
           <button onclick="deleteSonstiges('${s.id}')" title="Entfernen"
@@ -857,11 +870,12 @@ function renderCurrentCat() {
 
   html += `<div class="sonstiges-bar">
     <div class="sonstiges-inputs">
-      <div class="son-spacer"></div>
-      <input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}">
-      <input class="son-inp son-nr"      type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}">
-      <input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}">
-      <input class="son-inp son-menge"   type="number" placeholder="Menge"   min="1"     id="son-menge-${cat}">
+      <div></div>
+      <div><input class="son-inp son-name"    type="text"   placeholder="Artikel hinzufügen…" id="son-name-${cat}"></div>
+      <div><input class="son-inp son-nr"      type="text"   placeholder="Art.-Nr."            id="son-nr-${cat}"></div>
+      <div><input class="son-inp son-einheit" type="text"   placeholder="Einheit"             id="son-einheit-${cat}"></div>
+      <div class="son-preis-cell"><input class="son-inp" type="text" placeholder="Preis (€)"  id="son-preis-${cat}"></div>
+      <div><input class="son-inp son-menge"   type="number" placeholder="Menge" min="1"       id="son-menge-${cat}"></div>
     </div>
     <div class="sonstiges-btn-row">
       <button class="btn btn-outline" style="font-size:12px;padding:6px 14px"
@@ -980,10 +994,12 @@ async function addSonstiges(kat) {
   const nameEl    = document.getElementById(`son-name-${kat}`);
   const nrEl      = document.getElementById(`son-nr-${kat}`);
   const einheitEl = document.getElementById(`son-einheit-${kat}`);
+  const preisEl   = document.getElementById(`son-preis-${kat}`);
   const mengeEl   = document.getElementById(`son-menge-${kat}`);
   const name    = nameEl.value.trim();
   const nr      = nrEl.value.trim();
   const einheit = einheitEl.value.trim() || 'Stück';
+  const preis_netto = parseFloat((preisEl?.value || '').replace(',', '.')) || 0;
   const menge   = parseInt(mengeEl.value) || 0;
   if (!name)    { showToast('Bitte Artikelname eingeben.'); return; }
   if (menge < 1){ showToast('Bitte Menge eingeben.'); return; }
@@ -994,11 +1010,13 @@ async function addSonstiges(kat) {
   const { error } = await db.from('bestell_positionen').insert({
     auftrag_id: currentOrder.id, artikel_id: null,
     kategorie: kat, gruppe: 'Sonstiges', name, artikelnummer: nr,
-    einheit, menge,
+    einheit, preis_netto, menge,
   });
   if (error) { showToast('⚠️ Fehler.'); return; }
 
-  nameEl.value = ''; nrEl.value = ''; einheitEl.value = ''; mengeEl.value = '';
+  nameEl.value = ''; nrEl.value = ''; einheitEl.value = '';
+  if (preisEl) preisEl.value = '';
+  mengeEl.value = '';
   showToast(`✅ "${name}" hinzugefügt.`);
   loadBestellungView();
 }
