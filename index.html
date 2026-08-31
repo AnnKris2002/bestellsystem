@@ -981,18 +981,24 @@ function collectPositions() {
 
 // ─── DRUCKEN ──────────────────────────────────────────────────────────────────
 async function imgToBase64(url) {
-  const resp = await fetch(url);
-  const blob = await resp.blob();
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.readAsDataURL(blob);
-  });
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    return await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result);
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    return '';  // Bild fehlt → Druck trotzdem ermöglichen
+  }
 }
 
-async function printOrder() {
+// Positionen aus dem aktuellen Bestellformular einsammeln
+function collectAllPositions() {
   const positions = collectPositions();
-  const allPos = [
+  return [
     ...positions,
     ...savedSonstiges.filter(s => (s.menge || 0) > 0).map(s => ({
       artikel_id: null, kategorie: s.kategorie,
@@ -1001,10 +1007,38 @@ async function printOrder() {
       menge: s.menge,
     }))
   ];
+}
 
-  if (allPos.length === 0) { showToast('Keine Artikel ausgewählt.'); return; }
+// Aktuelle (noch offene) Bestellung drucken
+async function printCurrentOrder() {
+  await openPrint(collectAllPositions());
+}
 
-  const now = new Date();
+// Eine bereits gespeicherte Bestellung (Status "bestellt" oder "abgeschlossen")
+// erneut zum Drucken öffnen – aus der Datenbank nachgeladen.
+async function printOrderById(orderId) {
+  const { data: order, error } = await db.from('bestell_auftraege')
+    .select('*, bestell_positionen(*)').eq('id', orderId).single();
+  if (error || !order) { showToast('⚠️ Bestellung nicht gefunden.'); return; }
+  const allPos = (order.bestell_positionen || [])
+    .filter(p => (p.menge || 0) > 0)
+    .map(p => ({
+      artikel_id: p.artikel_id, kategorie: p.kategorie,
+      gruppe: p.gruppe || 'Sonstiges', name: p.name,
+      artikelnummer: p.artikelnummer || '', einheit: p.einheit || '',
+      menge: p.menge,
+    }));
+  if (allPos.length === 0) { showToast('Diese Bestellung enthält keine Positionen.'); return; }
+  await openPrint(allPos, order.bestellt_am || order.erstellt_am);
+}
+
+// Baut die Druck-Seite und öffnet den Druckdialog.
+// Nutzt ein verstecktes <iframe> statt window.open – das wird vom
+// Popup-Blocker NICHT geblockt. Fällt bei Bedarf auf einen neuen Tab zurück.
+async function openPrint(allPos, dateInput) {
+  if (!allPos || allPos.length === 0) { showToast('Keine Artikel ausgewählt.'); return; }
+
+  const now = dateInput ? new Date(dateInput) : new Date();
   const dateStr = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const [logoNordmed, stempel] = await Promise.all([
@@ -1020,13 +1054,13 @@ async function printOrder() {
     let rows = '';
     gruppen.forEach(gruppe => {
       const items = filtered.filter(p => p.gruppe === gruppe);
-      rows += `<tr class="gruppe-row"><td colspan="4">${gruppe}</td></tr>`;
+      rows += `<tr class="gruppe-row"><td colspan="4">${esc(gruppe)}</td></tr>`;
       items.forEach(p => {
         rows += `<tr>
-          <td class="col-name">${p.name}</td>
-          <td class="col-nr">${p.artikelnummer || ''}</td>
-          <td class="col-einheit">${p.einheit || ''}</td>
-          <td class="col-menge">${p.menge}</td>
+          <td class="col-name">${esc(p.name)}</td>
+          <td class="col-nr">${esc(p.artikelnummer || '')}</td>
+          <td class="col-einheit">${esc(p.einheit || '')}</td>
+          <td class="col-menge">${esc(p.menge)}</td>
         </tr>`;
       });
     });
@@ -1065,8 +1099,7 @@ async function printOrder() {
 
   if (!page1 && !page2) { showToast('Keine Artikel ausgewählt.'); return; }
 
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html lang="de"><head>
+  const printHtml = `<!DOCTYPE html><html lang="de"><head>
     <meta charset="UTF-8">
     <title>Bestellung – Nordmed</title>
     <style>
@@ -1112,12 +1145,44 @@ async function printOrder() {
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       }
     </style>
-  </head><body>${page1}${page2}</body></html>`);
-  win.document.close();
-  win.focus();
+  </head><body>${page1}${page2}</body></html>`;
+
+  // Alte Druck-Frames aufräumen
+  document.querySelectorAll('iframe.print-frame').forEach(f => f.remove());
+
+  // 1. Versuch: verstecktes iframe – wird NICHT vom Popup-Blocker geblockt
+  const iframe = document.createElement('iframe');
+  iframe.className = 'print-frame';
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(iframe);
+
+  const idoc = iframe.contentWindow.document;
+  idoc.open();
+  idoc.write(printHtml);
+  idoc.close();
+
   setTimeout(() => {
-    win.print();
-    win.addEventListener('afterprint', () => win.close());
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.addEventListener('afterprint', () => {
+        setTimeout(() => iframe.remove(), 500);
+      });
+      iframe.contentWindow.print();
+      // Falls 'afterprint' im Browser nicht feuert: spätestens nach 60 s entfernen
+      setTimeout(() => { if (iframe.isConnected) iframe.remove(); }, 60000);
+    } catch (e) {
+      iframe.remove();
+      // 2. Versuch: neuer Tab (kann vom Popup-Blocker geblockt werden)
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(printHtml);
+        win.document.close();
+        win.focus();
+        setTimeout(() => win.print(), 500);
+      } else {
+        showToast('⚠️ Pop-ups sind blockiert — bitte für diese Seite erlauben und "Drucken" erneut klicken.');
+      }
+    }
   }, 600);
 }
 
@@ -1171,8 +1236,8 @@ async function submitOrder() {
 
   if (error) { showToast('⚠️ Fehler beim Absenden.'); return; }
 
-  showToast('✅ Bestellung abgesendet!');
-  await printOrder();
+  showToast('✅ Bestellung erfasst — Druckdialog öffnet sich…');
+  await printCurrentOrder();
   currentOrder = null; savedQtys = {}; savedSonstiges = [];
   await updateBestelltBadge();
   loadBestellungView();
@@ -1264,6 +1329,7 @@ async function loadBestelltView() {
         <span style="font-size:13px;font-weight:600">${fmtDate(order.bestellt_am)}</span>
         <span class="order-meta">von ${esc(order.bestellt_von || '')}</span>
         <span class="order-meta" style="margin-left:auto">${done}/${items.length} erhalten</span>
+        <button class="btn btn-outline" style="font-size:12px;padding:6px 12px" onclick="printOrderById('${order.id}')">🖨️ Drucken</button>
         ${allDone ? `<button class="btn btn-green" style="font-size:12px;padding:6px 12px" onclick="completeOrder('${order.id}')">✓ Abschließen</button>` : ''}
       </div>`;
 
@@ -1390,6 +1456,7 @@ async function loadArchivView() {
           <span style="font-size:13px;font-weight:600">${fmtDateFull(order.abgeschlossen_am)}</span>
           <span class="order-meta">${esc(order.abgeschlossen_von||'')}</span>
           <span class="order-meta" style="margin-left:auto">${items.length} Positionen ▾</span>
+          <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="event.stopPropagation();printOrderById('${order.id}')">🖨️ Drucken</button>
         </div>
         <div id="a-${order.id}" style="display:none">`;
       CATS.forEach(cat => {
