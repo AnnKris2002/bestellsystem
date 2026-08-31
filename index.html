@@ -597,6 +597,10 @@
   <div class="actions-bar" id="actions-bar">
     <span class="actions-info" id="actions-info"></span>
     <div class="actions-spacer"></div>
+    <label id="arzt-wrap" style="display:none;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)">
+      🩺 Stempel:
+      <select id="arzt-select" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--text);background:#fff;outline:none;max-width:220px"></select>
+    </label>
     <button class="btn btn-save"    onclick="saveOrder()">💾 Speichern</button>
     <button class="btn btn-blue"    onclick="submitOrder()">📬 Bestellen →</button>
   </div>
@@ -626,6 +630,40 @@ let savedQtys      = {};
 let savedSonstiges = [];
 let currentView    = 'bestellung';
 let currentCat     = 'labor';
+
+// ─── ÄRZTE / STEMPEL ──────────────────────────────────────────────────────────
+// Stempelbilder liegen wie index.html im Repo-Root. Neue Ärztin/neuen Arzt einfach
+// als weitere Zeile ergänzen und die passende PNG hochladen.
+const AERZTE = [
+  { name: 'Dr. med. Kristin Schläfke', stempel: 'PraxisstempelSchlaefke.png' },
+  { name: 'Dr. med. Peter Hingst',     stempel: 'PraxisstempelHingst.png' },
+];
+const ARZT_LS_KEY = 'bestell_letzter_arzt';
+
+function stempelFuerArzt(name) {
+  return (AERZTE.find(a => a.name === name) || AERZTE[0]).stempel;
+}
+function defaultArzt() {
+  try {
+    const s = localStorage.getItem(ARZT_LS_KEY);
+    if (s && AERZTE.some(a => a.name === s)) return s;
+  } catch (e) {}
+  return AERZTE[0].name;
+}
+function selectedArzt() {
+  const sel = document.getElementById('arzt-select');
+  return (sel && sel.value) || defaultArzt();
+}
+function buildArztSelect() {
+  const wrap = document.getElementById('arzt-wrap');
+  const sel  = document.getElementById('arzt-select');
+  if (!wrap || !sel) return;
+  if (AERZTE.length < 2) { sel.innerHTML = ''; wrap.style.display = 'none'; return; }
+  sel.innerHTML = AERZTE.map(a => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join('');
+  sel.value = defaultArzt();
+  sel.onchange = () => { try { localStorage.setItem(ARZT_LS_KEY, sel.value); } catch (e) {} };
+  wrap.style.display = 'flex';
+}
 
 // ─── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -734,6 +772,7 @@ async function showApp() {
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').style.display   = 'flex';
   document.getElementById('chip-user').textContent = currentUser.kuerzel;
+  buildArztSelect();
   await updateBestelltBadge();
   switchView('bestellung');
 }
@@ -1011,7 +1050,7 @@ function collectAllPositions() {
 
 // Aktuelle (noch offene) Bestellung drucken
 async function printCurrentOrder() {
-  await openPrint(collectAllPositions());
+  await openPrint(collectAllPositions(), null, stempelFuerArzt(selectedArzt()));
 }
 
 // Eine bereits gespeicherte Bestellung (Status "bestellt" oder "abgeschlossen")
@@ -1029,13 +1068,15 @@ async function printOrderById(orderId) {
       menge: p.menge,
     }));
   if (allPos.length === 0) { showToast('Diese Bestellung enthält keine Positionen.'); return; }
-  await openPrint(allPos, order.bestellt_am || order.erstellt_am);
+  // Altbestellungen ohne gespeicherten Arzt → Standard-Stempel
+  const arzt = order.arzt || defaultArzt();
+  await openPrint(allPos, order.bestellt_am || order.erstellt_am, stempelFuerArzt(arzt));
 }
 
 // Baut die Druck-Seite und öffnet den Druckdialog.
 // Nutzt ein verstecktes <iframe> statt window.open – das wird vom
 // Popup-Blocker NICHT geblockt. Fällt bei Bedarf auf einen neuen Tab zurück.
-async function openPrint(allPos, dateInput) {
+async function openPrint(allPos, dateInput, stempelDatei) {
   if (!allPos || allPos.length === 0) { showToast('Keine Artikel ausgewählt.'); return; }
 
   const now = dateInput ? new Date(dateInput) : new Date();
@@ -1043,7 +1084,7 @@ async function openPrint(allPos, dateInput) {
 
   const [logoNordmed, stempel] = await Promise.all([
     imgToBase64('LogoNordmedNeu.png'),
-    imgToBase64('PraxisstempelSchlaefke.png'),
+    imgToBase64(stempelDatei || AERZTE[0].stempel),
   ]);
 
   function buildPage(title, cats) {
@@ -1224,18 +1265,20 @@ async function submitOrder() {
   const positions = collectPositions();
   const total = positions.length + savedSonstiges.length;
   if (total === 0) { showToast('Keine Artikel ausgewählt.'); return; }
-  if (!confirm(`${total} Artikel bestellen?`)) return;
+  const arzt = selectedArzt();
+  if (!confirm(`${total} Artikel bestellen?\n\nStempel: ${arzt}`)) return;
 
   const ok = await saveOrder(true);
   if (!ok || !currentOrder) return;
 
   const { error } = await db.from('bestell_auftraege').update({
     status: 'bestellt', bestellt_von: currentUser.anzeigename,
-    bestellt_am: new Date().toISOString(),
+    bestellt_am: new Date().toISOString(), arzt,
   }).eq('id', currentOrder.id);
 
   if (error) { showToast('⚠️ Fehler beim Absenden.'); return; }
 
+  try { localStorage.setItem(ARZT_LS_KEY, arzt); } catch (e) {}
   showToast('✅ Bestellung erfasst — Druckdialog öffnet sich…');
   await printCurrentOrder();
   currentOrder = null; savedQtys = {}; savedSonstiges = [];
@@ -1327,7 +1370,7 @@ async function loadBestelltView() {
       <div class="order-header">
         <span class="badge badge-bestellt">Bestellt</span>
         <span style="font-size:13px;font-weight:600">${fmtDate(order.bestellt_am)}</span>
-        <span class="order-meta">von ${esc(order.bestellt_von || '')}</span>
+        <span class="order-meta">von ${esc(order.bestellt_von || '')}${order.arzt ? ` · 🩺 ${esc(order.arzt)}` : ''}</span>
         <span class="order-meta" style="margin-left:auto">${done}/${items.length} erhalten</span>
         <button class="btn btn-outline" style="font-size:12px;padding:6px 12px" onclick="printOrderById('${order.id}')">🖨️ Drucken</button>
         ${allDone ? `<button class="btn btn-green" style="font-size:12px;padding:6px 12px" onclick="completeOrder('${order.id}')">✓ Abschließen</button>` : ''}
@@ -1454,7 +1497,7 @@ async function loadArchivView() {
         <div class="order-header" style="cursor:pointer" onclick="toggleArchiv('a-${order.id}')">
           <span class="badge badge-abgeschlossen">Abgeschlossen</span>
           <span style="font-size:13px;font-weight:600">${fmtDateFull(order.abgeschlossen_am)}</span>
-          <span class="order-meta">${esc(order.abgeschlossen_von||'')}</span>
+          <span class="order-meta">${esc(order.abgeschlossen_von||'')}${order.arzt ? ` · 🩺 ${esc(order.arzt)}` : ''}</span>
           <span class="order-meta" style="margin-left:auto">${items.length} Positionen ▾</span>
           <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="event.stopPropagation();printOrderById('${order.id}')">🖨️ Drucken</button>
         </div>
