@@ -377,6 +377,20 @@
     .menge-input:focus { border-color: var(--blue); }
     .menge-input.filled { border-color: var(--blue); background: var(--blue-light); color: var(--blue-d); }
 
+    /* Preis-Eingabe in Bestellt-/Archiv-Zeilen */
+    .preis-input {
+      width: 66px; padding: 4px 6px;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      font-size: 12px; text-align: right;
+      outline: none; color: var(--text); background: #fff;
+    }
+    .preis-input:focus { border-color: var(--blue); }
+    .preis-input.filled { border-color: var(--blue); background: var(--blue-light); color: var(--blue-d); }
+    .preis-cell { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: 0 0 150px; }
+    .preis-summe { font-size: 11px; color: var(--blue-d); min-width: 58px; text-align: right; white-space: nowrap; }
+    .preis-summe.leer { color: var(--muted); }
+    @media (max-width: 700px) { .preis-cell { flex-basis: 92px; } .preis-summe { display: none; } }
+
     /* ── SONSTIGES ────────────────────────────────────────────────────── */
     .sonstiges-bar {
       background: #F8FBFF; border-top: 1px solid var(--border);
@@ -510,7 +524,7 @@
     /* ── PRINT ──────────────────────────────────────────────────────────── */
     @media print {
       #topbar, #sidebar, #cat-tabs, .actions-bar,
-      .sonstiges-bar, .btn, #toast { display: none !important; }
+      .sonstiges-bar, .btn, .preis-input, #toast { display: none !important; }
       body { background: #fff; }
       #content { padding: 0; }
       .card { border: 1px solid #ccc; box-shadow: none; margin-bottom: 12px; }
@@ -652,6 +666,7 @@ let savedQtys      = {};
 let savedSonstiges = [];
 let currentView    = 'bestellung';
 let currentCat     = 'labor';
+const archivOffen  = new Set();   // order.id der aktuell aufgeklappten Archiv-Karten
 
 // ─── ÄRZTE / STEMPEL ──────────────────────────────────────────────────────────
 // Stempelbilder liegen wie index.html im Repo-Root. Neue Ärztin/neuen Arzt einfach
@@ -1391,6 +1406,68 @@ async function deleteSonstiges(posId) {
   loadBestellungView();
 }
 
+// ─── PREISE / RECHNUNG (Bestellt + Archiv) ────────────────────────────────────
+// Editierbare Preis-Zelle für eine Position. Sprechstundenbedarf bekommt kein
+// Feld (wird über KV-Rezept abgerechnet). Preis = Netto-Stückpreis pro Einheit.
+function preisZelleHtml(item) {
+  if (item.kategorie === 'sprechstunde') return '<span class="preis-cell"></span>';
+  const preis  = parseFloat(item.preis_netto) || 0;
+  const filled = preis > 0 ? ' filled' : '';
+  const val    = preis > 0 ? preis.toFixed(2).replace('.', ',') : '';
+  const summe  = preis > 0
+    ? `<span class="preis-summe">${(item.menge * preis).toFixed(2).replace('.', ',')} €</span>`
+    : `<span class="preis-summe leer">–</span>`;
+  return `<span class="preis-cell">
+    <input type="text" inputmode="decimal" class="preis-input${filled}"
+      value="${esc(val)}" placeholder="Preis €"
+      data-pos="${item.id}" data-artikel="${item.artikel_id || ''}" data-menge="${item.menge}"
+      title="Netto-Preis pro ${esc(item.einheit || 'Einheit')}"
+      onchange="updatePositionPreis(this)">${summe}
+  </span>`;
+}
+
+// Baut die Rechnungsaufstellung (Netto je Bereich, +19 % MwSt., Brutto).
+// Gibt '' zurück, wenn es nichts anzuzeigen gibt.
+function rechnungBoxHtml(items) {
+  const hasLabor   = items.some(i => i.kategorie === 'labor');
+  const rechnItems = items.filter(i => i.kategorie !== 'sprechstunde' && (parseFloat(i.preis_netto) || 0) > 0);
+  if (rechnItems.length === 0 && !hasLabor) return '';
+
+  const laborItems  = rechnItems.filter(i => i.kategorie === 'labor');
+  const praxisItems = rechnItems.filter(i => i.kategorie === 'praxis');
+  const sumLabor  = laborItems.reduce( (s, i) => s + i.menge * (parseFloat(i.preis_netto) || 0), 0);
+  const sumPraxis = praxisItems.reduce((s, i) => s + i.menge * (parseFloat(i.preis_netto) || 0), 0);
+  const sumNetto  = sumLabor + sumPraxis;
+  const mwst      = sumNetto * 0.19;
+  const sumBrutto = sumNetto + mwst;
+  const fmt = v => v.toFixed(2).replace('.', ',') + ' €';
+
+  let html = `<div class="rechnung-box">
+    <div class="rechnung-title">🧾 Rechnungsaufstellung (Netto-Preise)</div>`;
+  if (hasLabor)      html += `<div class="rechnung-row sub"><span>🧪 Laborbedarf</span><span style="color:${sumLabor > 0 ? 'inherit' : 'var(--muted)'}">${sumLabor > 0 ? fmt(sumLabor) : 'Preise folgen'}</span></div>`;
+  if (sumPraxis > 0) html += `<div class="rechnung-row sub"><span>🏥 Praxisbedarf</span><span>${fmt(sumPraxis)}</span></div>`;
+  html += `<div class="rechnung-row total-netto"><span>Summe Netto</span><span>${fmt(sumNetto)}</span></div>
+    <div class="rechnung-row mwst"><span>+ 19 % MwSt.</span><span>${fmt(mwst)}</span></div>
+    <div class="rechnung-row total-brutto"><span>Gesamt Brutto</span><span>${fmt(sumBrutto)}</span></div>
+    <div class="rechnung-row hint">Sprechstundenbedarf wird über KV-Rezept abgerechnet und erscheint hier nicht.</div>
+  </div>`;
+  return html;
+}
+
+// Preis einer Position eintragen/ändern – speichert in der Position UND als neuen
+// Katalog-Standardpreis des Artikels (gilt dann für künftige Bestellungen).
+async function updatePositionPreis(inp) {
+  const preis = parseFloat(String(inp.value).replace(',', '.')) || 0;
+  const posId = inp.dataset.pos;
+  const artId = inp.dataset.artikel;
+  const { error: e1 } = await db.from('bestell_positionen').update({ preis_netto: preis }).eq('id', posId);
+  if (e1) { showToast('⚠️ Fehler beim Speichern des Preises.'); return; }
+  if (artId) await db.from('bestell_artikel').update({ preis_netto: preis }).eq('id', artId);
+  showToast('✅ Preis gespeichert.');
+  if (currentView === 'archiv') loadArchivView();
+  else loadBestelltView();
+}
+
 // ─── BESTELLT VIEW ────────────────────────────────────────────────────────────
 async function loadBestelltView() {
   const view = document.getElementById('view-bestellt');
@@ -1436,14 +1513,12 @@ async function loadBestelltView() {
       ci.forEach(item => {
         const doneClass = item.erhalten ? ' done' : '';
         const byText    = item.erhalten ? `✓ ${item.erhalten_von || ''}` : '';
-        const preis     = parseFloat(item.preis_netto) || 0;
-        const posTotal  = preis > 0 ? (item.menge * preis).toFixed(2).replace('.',',') + ' €' : '';
         html += `<div class="check-row${doneClass}">
           <span class="cr-name">${esc(item.name)}
             ${item.artikelnummer ? `<span style="color:var(--muted);font-size:11px"> ${esc(item.artikelnummer)}</span>` : ''}
           </span>
           <span class="cr-menge">${item.menge}× ${esc(item.einheit)}</span>
-          ${posTotal ? `<span style="font-size:11px;color:var(--blue-d);min-width:72px;text-align:right">${posTotal}</span>` : '<span style="min-width:72px"></span>'}
+          ${preisZelleHtml(item)}
           <span class="cr-by">${byText}</span>
           <input type="checkbox" ${item.erhalten ? 'checked' : ''}
             onchange="toggleErhalten('${item.id}', '${order.id}', this.checked)">
@@ -1452,28 +1527,7 @@ async function loadBestelltView() {
     });
 
     // ── Rechnungsaufstellung (nur Labor + Praxis) ──────────────────
-    const hasLabor  = items.some(i => i.kategorie === 'labor');
-    const rechnItems = items.filter(i => i.kategorie !== 'sprechstunde' && (parseFloat(i.preis_netto)||0) > 0);
-    if (rechnItems.length > 0 || hasLabor) {
-      const laborItems  = rechnItems.filter(i => i.kategorie === 'labor');
-      const praxisItems = rechnItems.filter(i => i.kategorie === 'praxis');
-      const sumLabor  = laborItems.reduce( (s,i) => s + i.menge * (parseFloat(i.preis_netto)||0), 0);
-      const sumPraxis = praxisItems.reduce((s,i) => s + i.menge * (parseFloat(i.preis_netto)||0), 0);
-      const sumNetto  = sumLabor + sumPraxis;
-      const mwst      = sumNetto * 0.19;
-      const sumBrutto = sumNetto + mwst;
-      const fmt = v => v.toFixed(2).replace('.',',') + ' €';
-
-      html += `<div class="rechnung-box">
-        <div class="rechnung-title">🧾 Rechnungsaufstellung (Netto-Preise)</div>`;
-      if (hasLabor)      html += `<div class="rechnung-row sub"><span>🧪 Laborbedarf</span><span style="color:${sumLabor > 0 ? 'inherit' : 'var(--muted)'}">${sumLabor > 0 ? fmt(sumLabor) : 'Preise folgen'}</span></div>`;
-      if (sumPraxis > 0) html += `<div class="rechnung-row sub"><span>🏥 Praxisbedarf</span><span>${fmt(sumPraxis)}</span></div>`;
-      html += `<div class="rechnung-row total-netto"><span>Summe Netto</span><span>${fmt(sumNetto)}</span></div>
-        <div class="rechnung-row mwst"><span>+ 19 % MwSt.</span><span>${fmt(mwst)}</span></div>
-        <div class="rechnung-row total-brutto"><span>Gesamt Brutto</span><span>${fmt(sumBrutto)}</span></div>
-        <div class="rechnung-row hint">Sprechstundenbedarf wird über KV-Rezept abgerechnet und erscheint hier nicht.</div>
-      </div>`;
-    }
+    html += rechnungBoxHtml(items);
 
     html += `</div>`;
   });
@@ -1572,16 +1626,17 @@ async function loadArchivView() {
     html += `<div class="archiv-section-title">${g.label} — ${g.orders.length} Bestellung${g.orders.length!==1?'en':''}</div>`;
     g.orders.forEach(order => {
       const items = order.bestell_positionen || [];
+      const offen = archivOffen.has(order.id);
       html += `<div class="order-card">
         <div class="order-header" style="cursor:pointer" onclick="toggleArchiv('a-${order.id}')">
           <span class="badge badge-abgeschlossen">Abgeschlossen</span>
           <span style="font-size:13px;font-weight:600">${fmtDateFull(order.abgeschlossen_am)}</span>
           <span class="order-meta">${esc(order.abgeschlossen_von||'')}${order.arzt ? ` · 🩺 ${esc(order.arzt)}` : ''}</span>
-          <span class="order-meta" style="margin-left:auto">${items.length} Positionen ▾</span>
+          <span class="order-meta" style="margin-left:auto">${items.length} Positionen ${offen ? '▴' : '▾'}</span>
           <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="event.stopPropagation();printOrderById('${order.id}')">🖨️ Drucken</button>
           <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;border-color:var(--red);color:var(--red)" onclick="event.stopPropagation();deleteOrder('${order.id}','archiv')">🗑️</button>
         </div>
-        <div id="a-${order.id}" style="display:none">`;
+        <div id="a-${order.id}" style="display:${offen ? '' : 'none'}">`;
       CATS.forEach(cat => {
         const ci = items.filter(i => i.kategorie === cat.key);
         if (!ci.length) return;
@@ -1591,10 +1646,12 @@ async function loadArchivView() {
             <span style="color:var(--green);font-size:14px">✓</span>
             <span class="cr-name">${esc(item.name)}</span>
             <span class="cr-menge">${item.menge}× ${esc(item.einheit)}</span>
+            ${preisZelleHtml(item)}
             <span class="cr-by">${esc(item.erhalten_von||'')}</span>
           </div>`;
         });
       });
+      html += rechnungBoxHtml(items);
       html += `</div></div>`;
     });
   });
@@ -1604,7 +1661,14 @@ async function loadArchivView() {
 
 function toggleArchiv(id) {
   const el = document.getElementById(id);
-  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+  if (!el) return;
+  const jetztOffen = el.style.display === 'none';
+  el.style.display = jetztOffen ? '' : 'none';
+  const orderId = id.replace(/^a-/, '');
+  if (jetztOffen) archivOffen.add(orderId);
+  else archivOffen.delete(orderId);
+  const pfeil = el.previousElementSibling?.querySelector('.order-meta[style*="margin-left"]');
+  if (pfeil) pfeil.textContent = pfeil.textContent.replace(/[▾▴]/, jetztOffen ? '▴' : '▾');
 }
 
 // ─── HELFER ───────────────────────────────────────────────────────────────────
