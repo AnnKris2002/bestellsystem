@@ -489,6 +489,22 @@
     .cr-by    { font-size: 11px; color: var(--green); white-space: nowrap; flex: 0 0 42px; text-align: right; }
 
     /* ── ARCHIV ─────────────────────────────────────────────────────────── */
+    /* ── LIEFERSCHEIN / RECHNUNGSKONTROLLE ──────────────────────────────── */
+    .cr-ls { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .lief-banner { background: var(--blue-light); border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+    .lief-modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9999; align-items: center; justify-content: center; padding: 16px; }
+    .lief-box { background: #fff; border-radius: 14px; padding: 20px 22px; width: min(420px, 100%); box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+    .lief-box h3 { margin: 0 0 4px; font-size: 17px; }
+    .lief-sub { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+    .lief-box label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+    .lief-box input { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; font-size: 15px; border: 1.5px solid var(--border); border-radius: 8px; font-family: inherit; box-sizing: border-box; }
+    .lief-err { color: var(--red); font-size: 12.5px; min-height: 16px; margin-bottom: 6px; }
+    .lief-btns { display: flex; gap: 10px; justify-content: flex-end; }
+    .rk-top { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 15px; margin-bottom: 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+    .rk-top input[type=text], .rk-top select { padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13.5px; font-family: inherit; }
+    .rk-sum { font-size: 13px; padding: 0 4px 12px; line-height: 1.6; }
+    .rk-pruef { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; cursor: pointer; }
     .archiv-section-title {
       font-size: 12px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: .06em;
@@ -604,6 +620,11 @@
       <div class="sidebar-divider"></div>
       <div class="sidebar-section">Verlauf</div>
 
+      <div class="nav-item" data-view="rechnung" onclick="switchView('rechnung')">
+        <span class="nav-icon">🧾</span>
+        <span class="nav-label">Rechnungskontrolle</span>
+      </div>
+
       <div class="nav-item" data-view="archiv" onclick="switchView('archiv')">
         <span class="nav-icon">📁</span>
         <span class="nav-label">Archiv</span>
@@ -624,6 +645,7 @@
       <div id="content">
         <div id="view-bestellung"></div>
         <div id="view-bestellt"   style="display:none"></div>
+        <div id="view-rechnung"   style="display:none"></div>
         <div id="view-archiv"     style="display:none"></div>
       </div>
     </div>
@@ -641,6 +663,25 @@
     <button class="btn btn-blue"    onclick="submitOrder()">📬 Bestellen →</button>
   </div>
 
+</div>
+
+<!-- Popup: Lieferschein beim Abhaken -->
+<div id="lief-modal" class="lief-modal" style="display:none">
+  <div class="lief-box">
+    <h3>📄 Lieferschein</h3>
+    <p class="lief-sub" id="lief-sub">Gilt für alle Positionen, die du jetzt abhakst.</p>
+    <label>Lieferscheindatum *
+      <input type="date" id="lief-datum">
+    </label>
+    <label>Lieferscheinnummer (8 Ziffern)
+      <input type="text" id="lief-nr" inputmode="numeric" maxlength="20" placeholder="z. B. 12345678">
+    </label>
+    <div class="lief-err" id="lief-err"></div>
+    <div class="lief-btns">
+      <button class="btn btn-outline" onclick="liefAbbrechen()">Abbrechen</button>
+      <button class="btn btn-green" onclick="liefOk()">Übernehmen</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -848,7 +889,7 @@ function switchView(view) {
   currentView = view;
   document.querySelectorAll('.nav-item').forEach(n =>
     n.classList.toggle('active', n.dataset.view === view));
-  ['bestellung','bestellt','archiv'].forEach(v =>
+  ['bestellung','bestellt','rechnung','archiv'].forEach(v =>
     document.getElementById('view-' + v).style.display = v === view ? '' : 'none');
 
   const catTabs = document.getElementById('cat-tabs');
@@ -862,6 +903,7 @@ function switchView(view) {
     catTabs.style.display = 'none';
     actionsBar.classList.remove('visible');
     if (view === 'bestellt') loadBestelltView();
+    if (view === 'rechnung') loadRechnungView();
     if (view === 'archiv')   loadArchivView();
   }
 }
@@ -1080,6 +1122,7 @@ function collectPositions() {
       gruppe: art.gruppe, name: art.name,
       artikelnummer: art.artikelnummer || '', einheit: art.einheit || 'Stück',
       preis_netto: parseFloat(art.preis_netto) || 0, menge,
+      ...(art.ohne_berechnung ? { ohne_berechnung: true } : {}),
     });
   });
   return pos;
@@ -1412,16 +1455,19 @@ async function deleteSonstiges(posId) {
 function preisZelleHtml(item) {
   if (item.kategorie === 'sprechstunde') return '<span class="preis-cell"></span>';
   const preis  = parseFloat(item.preis_netto) || 0;
-  const filled = preis > 0 ? ' filled' : '';
-  const val    = preis > 0 ? preis.toFixed(2).replace('.', ',') : '';
+  const nullBewusst = !!item.ohne_berechnung && preis === 0;     // 0 € bewusst eingetragen: steht nicht auf der Rechnung
+  const filled = (preis > 0 || nullBewusst) ? ' filled' : '';
+  const val    = preis > 0 ? preis.toFixed(2).replace('.', ',') : (nullBewusst ? '0' : '');
   const summe  = preis > 0
     ? `<span class="preis-summe">${(item.menge * preis).toFixed(2).replace('.', ',')} €</span>`
-    : `<span class="preis-summe leer">–</span>`;
+    : nullBewusst
+      ? `<span class="preis-summe" title="Wird nicht berechnet (steht nicht auf der Rechnung)" style="color:var(--muted)">nicht berechnet</span>`
+      : `<span class="preis-summe leer">–</span>`;
   return `<span class="preis-cell">
     <input type="text" inputmode="decimal" class="preis-input${filled}"
       value="${esc(val)}" placeholder="Preis €"
       data-pos="${item.id}" data-artikel="${item.artikel_id || ''}" data-menge="${item.menge}"
-      title="Netto-Preis pro ${esc(item.einheit || 'Einheit')}"
+      title="Netto-Preis pro ${esc(item.einheit || 'Einheit')}. 0 eintragen = wird nicht berechnet (steht nicht auf der Rechnung)."
       onchange="updatePositionPreis(this)">${summe}
   </span>`;
 }
@@ -1444,7 +1490,7 @@ function rechnungBoxHtml(items) {
 
   let html = `<div class="rechnung-box">
     <div class="rechnung-title">🧾 Rechnungsaufstellung (Netto-Preise)</div>`;
-  if (hasLabor)      html += `<div class="rechnung-row sub"><span>🧪 Laborbedarf</span><span style="color:${sumLabor > 0 ? 'inherit' : 'var(--muted)'}">${sumLabor > 0 ? fmt(sumLabor) : 'Preise folgen'}</span></div>`;
+  if (hasLabor)      html += `<div class="rechnung-row sub"><span>🧪 Laborbedarf</span><span style="color:${sumLabor > 0 ? 'inherit' : 'var(--muted)'}">${sumLabor > 0 ? fmt(sumLabor) : (items.some(i => i.kategorie === 'labor' && !(parseFloat(i.preis_netto) > 0) && !i.ohne_berechnung) ? 'Preise folgen' : fmt(0))}</span></div>`;
   if (sumPraxis > 0) html += `<div class="rechnung-row sub"><span>🏥 Praxisbedarf</span><span>${fmt(sumPraxis)}</span></div>`;
   html += `<div class="rechnung-row total-netto"><span>Summe Netto</span><span>${fmt(sumNetto)}</span></div>
     <div class="rechnung-row mwst"><span>+ 19 % MwSt.</span><span>${fmt(mwst)}</span></div>
@@ -1457,14 +1503,17 @@ function rechnungBoxHtml(items) {
 // Preis einer Position eintragen/ändern – speichert in der Position UND als neuen
 // Katalog-Standardpreis des Artikels (gilt dann für künftige Bestellungen).
 async function updatePositionPreis(inp) {
-  const preis = parseFloat(String(inp.value).replace(',', '.')) || 0;
+  const raw   = String(inp.value).trim();
+  const preis = parseFloat(raw.replace(',', '.')) || 0;
+  const bewusstNull = raw !== '' && preis === 0;                  // "0" eingetragen = wird bewusst nicht berechnet
   const posId = inp.dataset.pos;
   const artId = inp.dataset.artikel;
-  const { error: e1 } = await db.from('bestell_positionen').update({ preis_netto: preis }).eq('id', posId);
-  if (e1) { showToast('⚠️ Fehler beim Speichern des Preises.'); return; }
-  if (artId) await db.from('bestell_artikel').update({ preis_netto: preis }).eq('id', artId);
-  showToast('✅ Preis gespeichert.');
+  const { error: e1 } = await db.from('bestell_positionen').update({ preis_netto: preis, ohne_berechnung: bewusstNull }).eq('id', posId);
+  if (e1) { showToast('⚠️ Fehler beim Speichern des Preises. Wurde die SQL-Erweiterung in Supabase ausgeführt?'); return; }
+  if (artId) await db.from('bestell_artikel').update({ preis_netto: preis, ohne_berechnung: bewusstNull }).eq('id', artId);
+  showToast(bewusstNull ? '✅ Gespeichert: wird nicht berechnet (0 €).' : '✅ Preis gespeichert.');
   if (currentView === 'archiv') loadArchivView();
+  else if (currentView === 'rechnung') loadRechnungView();
   else loadBestelltView();
 }
 
@@ -1489,7 +1538,7 @@ async function loadBestelltView() {
     { key:'sprechstunde', label:'📋 Sprechstundenbedarf' },
   ];
 
-  let html = '';
+  let html = liefBannerHtml();
   orders.forEach(order => {
     const items   = order.bestell_positionen || [];
     const done    = items.filter(i => i.erhalten).length;
@@ -1519,6 +1568,7 @@ async function loadBestelltView() {
           </span>
           <span class="cr-menge">${item.menge}× ${esc(item.einheit)}</span>
           ${preisZelleHtml(item)}
+          <span class="cr-ls">${lsText(item)}</span>
           <span class="cr-by">${byText}</span>
           <input type="checkbox" ${item.erhalten ? 'checked' : ''}
             onchange="toggleErhalten('${item.id}', '${order.id}', this.checked)">
@@ -1536,11 +1586,233 @@ async function loadBestelltView() {
 }
 
 async function toggleErhalten(posId, orderId, checked) {
-  const updates = checked
-    ? { erhalten: true,  erhalten_von: currentUser.kuerzel, erhalten_am: new Date().toISOString() }
-    : { erhalten: false, erhalten_von: null, erhalten_am: null };
-  await db.from('bestell_positionen').update(updates).eq('id', posId);
+  let updates;
+  if (checked) {
+    // Lieferschein (Datum Pflicht, Nummer darf fehlen): wird einmal abgefragt und gilt dann
+    // für alle Positionen, die gerade abgehakt werden.
+    const lf = await lieferungSicherstellen();
+    if (!lf) { loadBestelltView(); return; }
+    updates = { erhalten: true, erhalten_von: currentUser.kuerzel, erhalten_am: new Date().toISOString(),
+                lieferschein_datum: lf.datum, lieferschein_nr: lf.nr || null };
+  } else {
+    updates = { erhalten: false, erhalten_von: null, erhalten_am: null, lieferschein_datum: null, lieferschein_nr: null };
+  }
+  const { error } = await db.from('bestell_positionen').update(updates).eq('id', posId);
+  if (error) showToast('⚠️ Konnte nicht speichern. Wurde die SQL-Erweiterung in Supabase ausgeführt?');
   loadBestelltView();
+}
+
+// ─── LIEFERSCHEIN (Popup beim Abhaken) ────────────────────────────────────────
+let aktLieferung = null;                    // { datum:'JJJJ-MM-TT', nr:'', zeit: ms }
+let liefResolve  = null;
+const LIEF_GUELTIG_MS = 30 * 60 * 1000;     // nach 30 Min ohne Abhaken wird kurz nachgefragt
+
+function heuteIso() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function liefLaden() {
+  try { const o = JSON.parse(sessionStorage.getItem('bestell_lieferung') || 'null'); if (o && o.datum) aktLieferung = o; } catch (e) {}
+}
+function liefSpeichern() {
+  try { sessionStorage.setItem('bestell_lieferung', JSON.stringify(aktLieferung)); } catch (e) {}
+}
+function datumKurz(iso) {            // 'JJJJ-MM-TT' -> 'TT.MM.JJ'
+  if (!iso) return '';
+  const [y, m, d] = String(iso).slice(0, 10).split('-');
+  return `${d}.${m}.${y.slice(2)}`;
+}
+function datumLang(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).slice(0, 10).split('-');
+  return `${d}.${m}.${y}`;
+}
+function lsText(item) {
+  if (!item.lieferschein_datum) return '';
+  return 'LS ' + datumKurz(item.lieferschein_datum) + (item.lieferschein_nr ? ' · ' + esc(item.lieferschein_nr) : '')
+       + (item.rechnung_nr ? ' · R ' + esc(item.rechnung_nr) + (item.rechnung_geprueft_am ? ' ✓' : '') : '');
+}
+function lsSummary(items) {
+  const tage = [...new Set(items.map(i => i.lieferschein_datum).filter(Boolean))].sort().map(datumKurz);
+  return tage.length ? ' · Lieferschein ' + tage.join(', ') : '';
+}
+function frageLieferung(vorbelegt, hinweis) {
+  return new Promise(res => {
+    liefResolve = res;
+    document.getElementById('lief-datum').value = (vorbelegt && vorbelegt.datum) || heuteIso();
+    document.getElementById('lief-nr').value = (vorbelegt && vorbelegt.nr) || '';
+    document.getElementById('lief-err').textContent = '';
+    document.getElementById('lief-sub').textContent = hinweis || 'Gilt für alle Positionen, die du jetzt abhakst.';
+    document.getElementById('lief-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('lief-datum').focus(), 50);
+  });
+}
+function liefAbbrechen() {
+  document.getElementById('lief-modal').style.display = 'none';
+  if (liefResolve) { liefResolve(null); liefResolve = null; }
+}
+function liefOk() {
+  const datum = document.getElementById('lief-datum').value;
+  const nr = document.getElementById('lief-nr').value.trim();
+  const err = document.getElementById('lief-err');
+  if (!datum) { err.textContent = 'Bitte das Lieferscheindatum eintragen.'; return; }
+  if (datum > heuteIso()) { err.textContent = 'Das Datum liegt in der Zukunft.'; return; }
+  if (nr && !/^\d{8}$/.test(nr) && !confirm('Die Nummer hat nicht 8 Ziffern. Trotzdem übernehmen?')) return;
+  document.getElementById('lief-modal').style.display = 'none';
+  if (liefResolve) { liefResolve({ datum, nr, zeit: Date.now() }); liefResolve = null; }
+}
+// Gibt den aktuellen Lieferschein zurück (fragt ggf. nach) oder null bei Abbruch.
+async function lieferungSicherstellen() {
+  if (!aktLieferung) liefLaden();
+  if (aktLieferung && (Date.now() - aktLieferung.zeit) <= LIEF_GUELTIG_MS) {
+    aktLieferung.zeit = Date.now(); liefSpeichern(); return aktLieferung;
+  }
+  const neu = await frageLieferung(aktLieferung, aktLieferung ? 'Gilt noch derselbe Lieferschein? Bitte kurz prüfen, sonst ändern.' : null);
+  if (!neu) return null;
+  aktLieferung = neu; liefSpeichern(); return neu;
+}
+async function neueLieferung() {
+  const neu = await frageLieferung(aktLieferung, 'Neuer Lieferschein: gilt für alle Positionen, die du jetzt abhakst.');
+  if (neu) { aktLieferung = neu; liefSpeichern(); loadBestelltView(); }
+}
+function liefBannerHtml() {
+  if (!aktLieferung) liefLaden();
+  if (!aktLieferung) return '';
+  return `<div class="lief-banner">📄 Aktueller Lieferschein: <b>${datumLang(aktLieferung.datum)}</b>`
+    + (aktLieferung.nr ? ` · Nr. <b>${esc(aktLieferung.nr)}</b>` : ' · keine Nummer')
+    + ` <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="neueLieferung()">Anderer Lieferschein</button></div>`;
+}
+
+// ─── RECHNUNGSKONTROLLE (Kristin) ─────────────────────────────────────────────
+let rkMonat = null;       // 'JJJJ-MM'
+let rkGruppen = {};       // Gruppenschlüssel -> [Positions-IDs]
+let rkRechnungNr = {};    // Monat -> Rechnungsnummer (merkt sich die Eingabe)
+
+function rkMonate() {
+  const out = [], d = new Date(); d.setDate(1);
+  for (let i = 0; i < 14; i++) { out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); d.setMonth(d.getMonth() - 1); }
+  return out;
+}
+function rkMonatName(k) {
+  const [y, m] = k.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+}
+function rkWechsel(sel) { rkMonat = sel.value; loadRechnungView(); }
+function rkNrMerken(inp) { rkRechnungNr[rkMonat] = inp.value.trim(); }
+
+async function loadRechnungView() {
+  const view = document.getElementById('view-rechnung');
+  if (!rkMonat) rkMonat = rkMonate()[0];
+  view.innerHTML = '<div class="loading">Lade Lieferscheine…</div>';
+  const [y, m] = rkMonat.split('-').map(Number);
+  const von = `${rkMonat}-01`;
+  const bis = `${rkMonat}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+  const { data, error } = await db.from('bestell_positionen')
+    .select('*, bestell_auftraege(bestellt_am, bestellt_von, arzt)')
+    .gte('lieferschein_datum', von).lte('lieferschein_datum', bis)
+    .order('lieferschein_datum', { ascending: true });
+
+  const monatsAuswahl = `<select onchange="rkWechsel(this)">${rkMonate().map(k =>
+    `<option value="${k}" ${k === rkMonat ? 'selected' : ''}>${rkMonatName(k)}</option>`).join('')}</select>`;
+
+  if (error) {
+    view.innerHTML = `<div class="rk-top">Monat: ${monatsAuswahl}</div>
+      <div class="empty"><div class="icon">🧾</div><p>Die Lieferscheine konnten nicht geladen werden.<br>Wurde die SQL-Erweiterung in Supabase ausgeführt?</p></div>`;
+    return;
+  }
+  const items = data || [];
+
+  // Rechnungsnummer vorbelegen: Eingabe merken, sonst die bereits gespeicherte
+  if (rkRechnungNr[rkMonat] === undefined) {
+    const nr = (items.find(i => i.rechnung_nr) || {}).rechnung_nr;
+    rkRechnungNr[rkMonat] = nr || '';
+  }
+
+  // Gruppen je Lieferschein (Datum + Nummer)
+  const gruppen = {};
+  rkGruppen = {};
+  items.forEach(i => {
+    const key = `${i.lieferschein_datum}|${i.lieferschein_nr || ''}`;
+    (gruppen[key] = gruppen[key] || { datum: i.lieferschein_datum, nr: i.lieferschein_nr || '', items: [] }).items.push(i);
+    (rkGruppen[key] = rkGruppen[key] || []).push(i.id);
+  });
+  const keys = Object.keys(gruppen).sort();
+  const fmt = v => v.toFixed(2).replace('.', ',') + ' €';
+  const netto = list => list.filter(i => i.kategorie !== 'sprechstunde').reduce((a, i) => a + i.menge * (parseFloat(i.preis_netto) || 0), 0);
+
+  const gesamtNetto = netto(items);
+  const geprueftList = keys.filter(k => gruppen[k].items.every(i => i.rechnung_geprueft_am));
+  const geprueftNetto = geprueftList.reduce((a, k) => a + netto(gruppen[k].items), 0);
+  const ohnePreis = items.filter(i => i.kategorie !== 'sprechstunde' && !(parseFloat(i.preis_netto) > 0) && !i.ohne_berechnung).length;
+
+  let html = `<div class="rk-top">
+      <label>Monat (Lieferzeitraum): ${monatsAuswahl}</label>
+      <label>Rechnungsnummer der Sammelrechnung:
+        <input type="text" id="rk-nr" value="${esc(rkRechnungNr[rkMonat])}" placeholder="z. B. 202610-4711" onchange="rkNrMerken(this)"></label>
+    </div>`;
+
+  if (!keys.length) {
+    html += `<div class="empty"><div class="icon">🧾</div><p>Für ${rkMonatName(rkMonat)} gibt es noch keine abgehakten Lieferscheine.</p></div>`;
+    view.innerHTML = html;
+    return;
+  }
+
+  html += `<div class="rk-sum">
+      <b>${geprueftList.length} von ${keys.length}</b> Lieferscheinen geprüft
+      · Summe Netto <b>${fmt(gesamtNetto)}</b> (+ 19 % = <b>${fmt(gesamtNetto * 1.19)}</b> brutto)
+      · davon geprüft <b>${fmt(geprueftNetto)}</b>
+      ${ohnePreis ? `<br><span style="color:var(--red)">⚠ ${ohnePreis} Position${ohnePreis > 1 ? 'en' : ''} ohne Preis, die Summe ist dadurch zu niedrig.</span>` : ''}
+      ${geprueftList.length === keys.length ? '<br>✅ Alle Lieferscheine dieses Monats sind geprüft.' : ''}
+      <br><span style="color:var(--muted);font-size:12px">Sprechstundenbedarf zählt nicht zur Rechnung (KV-Rezept).</span>
+    </div>`;
+
+  keys.forEach(key => {
+    const g = gruppen[key];
+    const ok = g.items.every(i => i.rechnung_geprueft_am);
+    g.items.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    html += `<div class="order-card">
+      <div class="order-header">
+        <span class="badge badge-bestellt">Lieferschein</span>
+        <span style="font-size:14px;font-weight:700">${datumLang(g.datum)}</span>
+        <span class="order-meta">${g.nr ? 'Nr. ' + esc(g.nr) : 'keine Nummer'}</span>
+        <span class="order-meta" style="margin-left:auto">${g.items.length} Position${g.items.length !== 1 ? 'en' : ''} · Netto ${fmt(netto(g.items))}</span>
+        <label class="rk-pruef"><input type="checkbox" style="width:18px;height:18px;accent-color:var(--green)" ${ok ? 'checked' : ''}
+          onchange="rkPruefen('${esc(key)}', this.checked)"> stimmt mit Rechnung</label>
+      </div>`;
+    g.items.forEach(item => {
+      const o = item.bestell_auftraege || {};
+      html += `<div class="check-row${ok ? ' done' : ''}">
+        <span class="cr-name">${esc(item.name)}${item.artikelnummer ? `<span style="color:var(--muted);font-size:11px"> ${esc(item.artikelnummer)}</span>` : ''}</span>
+        <span class="cr-menge">${item.menge}× ${esc(item.einheit)}</span>
+        ${preisZelleHtml(item)}
+        <span class="cr-ls">bestellt ${datumKurz(o.bestellt_am)}${o.arzt ? ' · 🩺 ' + esc(o.arzt) : ''} · ✓ ${esc(item.erhalten_von || '')} ${datumKurz(item.erhalten_am)}</span>
+      </div>`;
+    });
+    if (ok) {
+      const nr = g.items[0].rechnung_nr;
+      html += `<div class="order-meta" style="padding:6px 15px">Geprüft von ${esc(g.items[0].rechnung_geprueft_von || '')} · Rechnung ${esc(nr || '')}</div>`;
+    }
+    html += `</div>`;
+  });
+  view.innerHTML = html;
+}
+
+async function rkPruefen(key, checked) {
+  const ids = rkGruppen[key] || [];
+  if (!ids.length) return;
+  let updates;
+  if (checked) {
+    const inp = document.getElementById('rk-nr');
+    const nr = inp ? inp.value.trim() : '';
+    if (!nr) { showToast('Bitte oben zuerst die Rechnungsnummer eintragen.'); loadRechnungView(); return; }
+    rkRechnungNr[rkMonat] = nr;
+    updates = { rechnung_nr: nr, rechnung_geprueft_am: new Date().toISOString(), rechnung_geprueft_von: currentUser.kuerzel };
+  } else {
+    updates = { rechnung_nr: null, rechnung_geprueft_am: null, rechnung_geprueft_von: null };
+  }
+  const { error } = await db.from('bestell_positionen').update(updates).in('id', ids);
+  if (error) showToast('⚠️ Konnte nicht speichern.');
+  loadRechnungView();
 }
 
 async function completeOrder(orderId) {
@@ -1631,7 +1903,7 @@ async function loadArchivView() {
         <div class="order-header" style="cursor:pointer" onclick="toggleArchiv('a-${order.id}')">
           <span class="badge badge-abgeschlossen">Abgeschlossen</span>
           <span style="font-size:13px;font-weight:600">${fmtDateFull(order.abgeschlossen_am)}</span>
-          <span class="order-meta">${esc(order.abgeschlossen_von||'')}${order.arzt ? ` · 🩺 ${esc(order.arzt)}` : ''}</span>
+          <span class="order-meta">${esc(order.abgeschlossen_von||'')}${order.arzt ? ` · 🩺 ${esc(order.arzt)}` : ''} · bestellt ${fmtDate(order.bestellt_am)}${lsSummary(items)}</span>
           <span class="order-meta" style="margin-left:auto">${items.length} Positionen ${offen ? '▴' : '▾'}</span>
           <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="event.stopPropagation();printOrderById('${order.id}')">🖨️ Drucken</button>
           <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;border-color:var(--red);color:var(--red)" onclick="event.stopPropagation();deleteOrder('${order.id}','archiv')">🗑️</button>
@@ -1647,6 +1919,7 @@ async function loadArchivView() {
             <span class="cr-name">${esc(item.name)}</span>
             <span class="cr-menge">${item.menge}× ${esc(item.einheit)}</span>
             ${preisZelleHtml(item)}
+            <span class="cr-ls">${lsText(item)}</span>
             <span class="cr-by">${esc(item.erhalten_von||'')}</span>
           </div>`;
         });
